@@ -50,6 +50,46 @@ const SERVICE_MANIFEST = {
       inputs: ["property_price", "down_payment", "loan_tenure", "interest_rate"],
       outputs: ["monthly_payment", "total_interest", "affordability_score"],
       pricing: { per_call: 0.0002, currency: "USD" }
+    },
+    {
+      id: "tenant_screening",
+      name: "Tenant Screening",
+      description: "Verify tenant details and creditworthiness",
+      inputs: ["tenant_name", "ic_number", "employment", "income"],
+      outputs: ["verification_status", "risk_score", "recommendation"],
+      pricing: { per_call: 0.005, currency: "USD" }
+    },
+    {
+      id: "contract_review",
+      name: "Contract Review",
+      description: "Extract key terms from property contracts",
+      inputs: ["contract_text"],
+      outputs: ["key_terms", "dates", "obligations", "risks"],
+      pricing: { per_call: 0.01, currency: "USD" }
+    },
+    {
+      id: "price_estimation",
+      name: "Price Estimation",
+      description: "Estimate property value based on location and features",
+      inputs: ["address", "property_type", "sqft", "bedrooms", "condition"],
+      outputs: ["estimated_price", "range", "market_comparison"],
+      pricing: { per_call: 0.002, currency: "USD" }
+    },
+    {
+      id: "rental_yield",
+      name: "Rental Yield Calculator",
+      description: "Calculate expected rental yield for investment properties",
+      inputs: ["property_price", "monthly_rent", "expenses"],
+      outputs: ["gross_yield", "net_yield", "payback_period"],
+      pricing: { per_call: 0.0003, currency: "USD" }
+    },
+    {
+      id: "area_research",
+      name: "Area Research",
+      description: "Research neighborhood amenities, transport, schools",
+      inputs: ["location", "priorities"],
+      outputs: ["transport_score", "school_rating", "amenities", "future_plans"],
+      pricing: { per_call: 0.004, currency: "USD" }
     }
   ],
   reliability: {
