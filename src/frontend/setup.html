@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consigliere | Agent Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; padding: 40px; }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    .subtitle { color: #888; margin-bottom: 40px; }
+    .card { background: #1a1a2e; border-radius: 12px; padding: 32px; border: 1px solid #333; max-width: 600px; }
+    .form-group { margin-bottom: 24px; }
+    .form-group label { display: block; color: #aaa; margin-bottom: 8px; font-size: 14px; }
+    .form-group input { width: 100%; padding: 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 16px; }
+    .form-group input:focus { outline: none; border-color: #4ade80; }
+    .form-group .hint { color: #666; font-size: 12px; margin-top: 6px; }
+    .btn { background: #4ade80; color: #000; border: none; padding: 14px 28px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; }
+    .btn:hover { background: #22c55e; }
+    .btn-secondary { background: #333; color: #fff; }
+    .btn-secondary:hover { background: #444; }
+    .section { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid #333; }
+    .section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .section h2 { font-size: 18px; margin-bottom: 20px; color: #ddd; }
+    .status { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
+    .status.connected { background: #22c55e20; color: #22c55e; }
+    .status.not-connected { background: #ef444420; color: #ef4444; }
+    .row { display: flex; gap: 16px; }
+    .row .form-group { flex: 1; }
+  </style>
+</head>
+<body>
+  <h1>🦅 Agent Setup</h1>
+  <p class="subtitle">Configure your WhatsApp and Calendar integration</p>
+  
+  <div class="card">
+    <form id="setupForm">
+      <div class="section">
+        <h2>👤 Agent Profile</h2>
+        <div class="form-group">
+          <label>Agent Name</label>
+          <input type="text" id="agentName" placeholder="e.g., John's Assistant">
+        </div>
+        <div class="form-group">
+          <label>Your Phone Number</label>
+          <input type="text" id="agentPhone" placeholder="e.g., +6512345678">
+        </div>
+        <div class="form-group">
+          <label>Your Email</label>
+          <input type="email" id="agentEmail" placeholder="e.g., john@email.com">
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2>📱 WhatsApp Business</h2>
+        <div id="waStatus" class="status not-connected">Not connected</div>
+        <div class="form-group">
+          <label>Phone Number ID</label>
+          <input type="text" id="waPhoneNumberId" placeholder="From Meta Developer Portal">
+        </div>
+        <div class="form-group">
+          <label>Access Token</label>
+          <input type="password" id="waAccessToken" placeholder="From Meta Developer Portal">
+          <div class="hint">Get from: Meta for Developers → Your App → WhatsApp → Configuration</div>
+        </div>
+        <div class="form-group">
+          <label>Webhook Verify Token</label>
+          <input type="text" id="waVerifyToken" placeholder="consigliere_verify">
+          <div class="hint">Set this in Meta webhook settings</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2>📅 Google Calendar</h2>
+        <div id="calStatus" class="status not-connected">Not connected</div>
+        <button type="button" class="btn btn-secondary" onclick="connectCalendar()">🔗 Connect Google Calendar</button>
+      </div>
+      
+      <div style="display: flex; gap: 16px;">
+        <button type="submit" class="btn">💾 Save Configuration</button>
+        <button type="button" class="btn btn-secondary" onclick="testWhatsApp()">🧪 Test WhatsApp</button>
+      </div>
+    </form>
+  </div>
+  
+  <script>
+    let agentId = localStorage.getItem('agentId') || 'agent_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('agentId', agentId);
+    
+    // Load existing config
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/agents/' + agentId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.agent) {
+            document.getElementById('agentName').value = data.agent.name || '';
+            document.getElementById('agentPhone').value = data.agent.phone || '';
+            document.getElementById('agentEmail').value = data.agent.email || '';
+            document.getElementById('waPhoneNumberId').value = data.agent.whatsapp?.phoneNumberId || '';
+            if (data.agent.whatsapp?.connected) {
+              document.getElementById('waStatus').textContent = '✅ Connected';
+              document.getElementById('waStatus').className = 'status connected';
+            }
+            if (data.agent.calendar?.connected) {
+              document.getElementById('calStatus').textContent = '✅ Connected';
+              document.getElementById('calStatus').className = 'status connected';
+            }
+          }
+        }
+      } catch (e) {
+        console.log('No existing config');
+      }
+    }
+    
+    // Save config
+    document.getElementById('setupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const config = {
+        id: agentId,
+        name: document.getElementById('agentName').value,
+        phone: document.getElementById('agentPhone').value,
+        email: document.getElementById('agentEmail').value,
+        whatsapp: {
+          phoneNumberId: document.getElementById('waPhoneNumberId').value,
+          accessToken: document.getElementById('waAccessToken').value,
+          verifyToken: document.getElementById('waVerifyToken').value,
+          connected: !!document.getElementById('waPhoneNumberId').value
+        }
+      };
+      
+      try {
+        const res = await fetch('/api/agents/' + agentId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        alert('✅ Configuration saved!');
+        loadConfig();
+      } catch (e) {
+        alert('Error saving: ' + e.message);
+      }
+    });
+    
+    // Connect Calendar
+    function connectCalendar() {
+      window.location.href = '/api/calendar/auth-url/' + agentId;
+    }
+    
+    // Test WhatsApp
+    async function testWhatsApp() {
+      const testPhone = prompt('Enter a phone number to test (e.g., +6512345678):');
+      if (!testPhone) return;
+      
+      try {
+        const res = await fetch('/api/whatsapp/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: testPhone, message: '🧪 Test message from Consigliere!' })
+        });
+        if (res.ok) {
+          alert('✅ Test message sent!');
+        } else {
+          alert('❌ Failed to send');
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+    
+    loadConfig();
+  </script>
+</body>
+</html>

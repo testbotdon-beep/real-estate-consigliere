@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webhook Tester | Consigliere</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; padding: 40px; }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    .subtitle { color: #888; margin-bottom: 40px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { background: #1a1a2e; border-radius: 12px; padding: 24px; border: 1px solid #333; }
+    .card h2 { font-size: 16px; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+    textarea { width: 100%; height: 300px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #ccc; font-family: monospace; padding: 16px; font-size: 14px; resize: vertical; }
+    textarea:focus { outline: none; border-color: #4ade80; }
+    .btn { background: #4ade80; color: #000; border: none; padding: 14px 28px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .btn:hover { background: #22c55e; }
+    .btn-secondary { background: #333; color: #fff; }
+    .btn-secondary:hover { background: #444; }
+    .row { display: flex; gap: 12px; margin-bottom: 16px; }
+    select { background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; padding: 12px; font-size: 14px; }
+    .hint { color: #666; font-size: 12px; margin-top: 8px; }
+    .response { background: #0f0f0f; border: 1px solid #333; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+    .response.success { border-color: #22c55e; }
+    .response.error { border-color: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Webhook Tester</h1>
+  <p class="subtitle">Test WhatsApp webhooks and message flows</p>
+  
+  <div class="grid">
+    <div class="card">
+      <h2>📤 Send Webhook Payload</h2>
+      
+      <div class="row">
+        <select id="webhookType">
+          <option value="incoming_message">Incoming Message</option>
+          <option value="button_reply">Button Reply</option>
+          <option value="verification">Webhook Verification</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadSample()">📋 Load Sample</button>
+      </div>
+      
+      <textarea id="payload" placeholder="Paste JSON payload here..."></textarea>
+      
+      <div style="margin-top: 16px;">
+        <button class="btn" onclick="sendWebhook()">🚀 Send Webhook</button>
+        <button class="btn btn-secondary" onclick="clearResponse()">Clear</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>📥 Response</h2>
+      <div id="response" class="response">No response yet</div>
+    </div>
+  </div>
+  
+  <div class="card" style="margin-top: 24px;">
+    <h2>🔗 Webhook URLs</h2>
+    <p class="hint">
+      <strong>WhatsApp:</strong> https://your-domain.com/api/whatsapp/webhook<br>
+      <strong>Twilio:</strong> https://your-domain.com/api/twilio/webhook<br>
+      <strong>Verify Token:</strong> consigliere_verify
+    </p>
+  </div>
+  
+  <script>
+    const samples = {
+      incoming_message: {
+        "object": "whatsapp_business_account",
+        "entry": [{
+          "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+          "changes": [{
+            "value": {
+              "messaging_product": "whatsapp",
+              "metadata": {
+                "display_phone_number": "+1234567890",
+                "phone_number_id": "1234567890"
+              },
+              "messages": [{
+                "from": "+6512345678",
+                "id": "wamid.abc123",
+                "timestamp": "1700000000",
+                "text": {
+                  "body": "Hi, I'm looking for a property"
+                },
+                "type": "text"
+              }]
+            },
+            "field": "messages"
+          }]
+        }]
+      },
+      button_reply: {
+        "object": "whatsapp_business_account",
+        "entry": [{
+          "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+          "changes": [{
+            "value": {
+              "messaging_product": "whatsapp",
+              "metadata": {
+                "display_phone_number": "+1234567890",
+                "phone_number_id": "1234567890"
+              },
+              "messages": [{
+                "from": "+6512345678",
+                "id": "wamid.abc123",
+                "timestamp": "1700000000",
+                "type": "interactive",
+                "interactive": {
+                  "type": "button_reply",
+                  "button_reply": {
+                    "id": "btn_1",
+                    "title": "Confirm Booking"
+                  }
+                }
+              }]
+            },
+            "field": "messages"
+          }]
+        }]
+      },
+      verification: {
+        "hub.mode": "subscribe",
+        "hub.verify_token": "consigliere_verify",
+        "hub.challenge": "test_challenge"
+      }
+    };
+    
+    function loadSample() {
+      const type = document.getElementById('webhookType').value;
+      document.getElementById('payload').value = JSON.stringify(samples[type], null, 2);
+    }
+    
+    async function sendWebhook() {
+      const payload = document.getElementById('payload').value;
+      const responseEl = document.getElementById('response');
+      
+      try {
+        const parsed = JSON.parse(payload);
+        
+        // Check if it's a verification request
+        if (parsed['hub.mode'] === 'subscribe') {
+          responseEl.textContent = 'ℹ️ This is a webhook verification request. It will be handled automatically.';
+          responseEl.className = 'response';
+          return;
+        }
+        
+        const res = await fetch('/api/whatsapp/webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
+        
+        const text = await res.text();
+        responseEl.textContent = `Status: ${res.status} ${res.statusText}\n\nBody: ${text}`;
+        responseEl.className = 'response ' + (res.ok ? 'success' : 'error');
+      } catch (e) {
+        responseEl.textContent = 'Error: ' + e.message;
+        responseEl.className = 'response error';
+      }
+    }
+    
+    function clearResponse() {
+      document.getElementById('response').textContent = 'No response yet';
+      document.getElementById('response').className = 'response';
+    }
+    
+    loadSample();
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "real-estate-consigliere",
+  "version": "1.0.0",
+  "description": "AI Personal Assistant for Property Agents",
+  "main": "src/server/index.js",
+  "scripts": {
+    "start": "node src/server/index.js",
+    "dev": "node src/server/index.js"
+  },
+  "keywords": [
+    "ai",
+    "real-estate",
+    "assistant",
+    "whatsapp"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@vercel/kv": "^3.0.0",
+    "axios": "^1.13.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "groq-sdk": "^0.37.0",
+    "nodemailer": "^8.0.1",
+    "socket.io": "^4.8.1",
+    "twilio": "^5.12.1",
+    "uuid": "^11.0.5"
+  }
+}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Calendar | Consigliere</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0d0d0f; color: #f5f5f7; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    
+    .container { max-width: 480px; padding: 40px; text-align: center; }
+    
+    .logo { font-size: 48px; margin-bottom: 24px; }
+    
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 12px; }
+    p { color: #86868b; font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
+    
+    .card { background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px; margin-bottom: 24px; }
+    
+    .connect-btn { display: flex; align-items: center; gap: 16px; padding: 20px; background: #1f1f23; border: 1px solid #2a2a2e; border-radius: 16px; cursor: pointer; transition: all 0.2s; width: 100%; text-align: left; }
+    .connect-btn:hover { border-color: #4285f4; background: #1a1a2e; }
+    .connect-btn .icon { font-size: 32px; }
+    .connect-btn .text h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .connect-btn .text p { font-size: 13px; color: #86868b; margin: 0; }
+    .connect-btn .status { margin-left: auto; color: #4285f4; font-weight: 500; }
+    
+    .connected { border-color: #30d158; }
+    .connected .status { color: #30d158; }
+    
+    .back-btn { background: #2d2d2f; border: 1px solid #444; color: #fff; padding: 12px 24px; border-radius: 12px; cursor: pointer; font-size: 14px; }
+    .back-btn:hover { background: #3d3d3f; }
+    
+    .success { color: #30d158; font-size: 48px; margin-bottom: 16px; }
+    .error { color: #ff453a; font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="logo">📅</div>
+    <h1>Connect Your Calendar</h1>
+    <p>Link Google Calendar to enable automatic scheduling. Consigliere will check your availability and book viewings directly.</p>
+    
+    <div class="card">
+      <div class="connect-btn" id="googleConnect" onclick="connectGoogle()">
+        <div class="icon">📅</div>
+        <div class="text">
+          <h4>Google Calendar</h4>
+          <p>Sync your schedule for automatic booking</p>
+        </div>
+        <div class="status" id="googleStatus">Connect →</div>
+      </div>
+    </div>
+    
+    <button class="back-btn" onclick="location.href='/'">Back to Home</button>
+  </div>
+  
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('calendar');
+    const agentId = params.get('agent') || 'default';
+    
+    if (status === 'connected') {
+      document.getElementById('app').innerHTML = `
+        <div class="success">✓</div>
+        <h1>Calendar Connected!</h1>
+        <p>Your Google Calendar is now linked. Consigliere can check your availability and book viewings automatically.</p>
+        <button class="back-btn" onclick="location.href='/'">Back to Home</button>
+      `;
+    } else if (status === 'error') {
+      const msg = params.get('message') || 'Unknown error';
+      document.getElementById('app').innerHTML = `
+        <div class="error">✗</div>
+        <h1>Connection Failed</h1>
+        <p>${msg}</p>
+        <button class="back-btn" onclick="location.href='/calendar-connect'">Try Again</button>
+      `;
+    }
+    
+    function connectGoogle() {
+      // Get auth URL from backend
+      fetch('/api/calendar/auth-url/' + agentId)
+        .then(r => r.json())
+        .then(data => {
+          if (data.authUrl) {
+            window.location.href = data.authUrl;
+          } else {
+            alert('Failed to get auth URL');
+          }
+        })
+        .catch(err => {
+          alert('Error: ' + err.message);
+        });
+    }
+    
+    // Check if already connected
+    fetch('/api/agents/' + agentId)
+      .then(r => r.json())
+      .then(agent => {
+        if (agent?.calendar?.connected) {
+          document.getElementById('googleConnect').classList.add('connected');
+          document.getElementById('googleStatus').textContent = '✓ Connected';
+        }
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

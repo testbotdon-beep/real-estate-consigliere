@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consigliere Status</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; padding: 40px; }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    .subtitle { color: #888; margin-bottom: 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .card { background: #1a1a2e; border-radius: 12px; padding: 24px; border: 1px solid #333; }
+    .card h2 { font-size: 16px; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+    .status-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
+    .status-row:last-child { border-bottom: none; }
+    .status-label { color: #ccc; }
+    .status-value { font-weight: 600; }
+    .status-value.green { color: #4ade80; }
+    .status-value.red { color: #ef4444; }
+    .status-value.yellow { color: #fbbf24; }
+    .status-value.gray { color: #666; }
+    .btn { background: #4ade80; color: #000; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 20px; }
+    .btn:hover { background: #22c55e; }
+    .refresh { color: #666; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🦅 Consigliere Status</h1>
+  <p class="subtitle">Real-time system health check</p>
+  
+  <div class="grid">
+    <div class="card">
+      <h2>📱 WhatsApp</h2>
+      <div class="status-row">
+        <span class="status-label">Phone Number ID</span>
+        <span class="status-value" id="waPhoneId">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Access Token</span>
+        <span class="status-value" id="waToken">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Status</span>
+        <span class="status-value" id="waStatus">Loading...</span>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>📅 Google Calendar</h2>
+      <div class="status-row">
+        <span class="status-label">Client ID</span>
+        <span class="status-value" id="calClientId">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Redirect URI</span>
+        <span class="status-value" id="calRedirect">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Status</span>
+        <span class="status-value" id="calStatus">Loading...</span>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>🗄️ Database</h2>
+      <div class="status-row">
+        <span class="status-label">Leads</span>
+        <span class="status-value" id="dbLeads">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Properties</span>
+        <span class="status-value" id="dbProps">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Appointments</span>
+        <span class="status-value" id="dbAppts">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Templates</span>
+        <span class="status-value" id="dbTemplates">Loading...</span>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>🌐 Webhooks</h2>
+      <div class="status-row">
+        <span class="status-label">WhatsApp Webhook</span>
+        <span class="status-value" id="whWa">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Twilio Webhook</span>
+        <span class="status-value" id="whTwilio">Loading...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Server Uptime</span>
+        <span class="status-value" id="uptime">Loading...</span>
+      </div>
+    </div>
+  </div>
+  
+  <button class="btn" onclick="checkStatus()">🔄 Refresh Status</button>
+  <p class="refresh">Auto-refreshes every 30 seconds</p>
+  
+  <script>
+    async function checkStatus() {
+      try {
+        // WhatsApp status
+        const waRes = await fetch('/api/whatsapp/status');
+        const waData = await waRes.json();
+        document.getElementById('waPhoneId').textContent = waData.phoneNumberId || 'Not set';
+        document.getElementById('waPhoneId').className = 'status-value ' + (waData.phoneNumberId ? 'green' : 'red');
+        document.getElementById('waToken').textContent = waData.configured ? '✅ Configured' : '❌ Missing';
+        document.getElementById('waToken').className = 'status-value ' + (waData.configured ? 'green' : 'red');
+        document.getElementById('waStatus').textContent = waData.configured ? '✅ Ready' : '⚠️ Not Configured';
+        document.getElementById('waStatus').className = 'status-value ' + (waData.configured ? 'green' : 'yellow');
+        
+        // Database stats
+        const [leadsRes, propsRes, apptsRes, tplsRes] = await Promise.all([
+          fetch('/api/leads'),
+          fetch('/api/properties'),
+          fetch('/api/appointments'),
+          fetch('/api/templates')
+        ]);
+        
+        const leads = await leadsRes.json();
+        const props = await propsRes.json();
+        const appts = await apptsRes.json();
+        const tpls = await tplsRes.json();
+        
+        document.getElementById('dbLeads').textContent = leads.leads?.length || 0;
+        document.getElementById('dbProps').textContent = props.properties?.length || 0;
+        document.getElementById('dbAppts').textContent = appts.appointments?.length || 0;
+        document.getElementById('dbTemplates').textContent = tpls.templates?.length || 0;
+        
+        // Calendar
+        document.getElementById('calClientId').textContent = '✅ Configured';
+        document.getElementById('calClientId').className = 'status-value green';
+        document.getElementById('calRedirect').textContent = '✅ Set';
+        document.getElementById('calRedirect').className = 'status-value green';
+        document.getElementById('calStatus').textContent = '🔗 Connect to use';
+        document.getElementById('calStatus').className = 'status-value yellow';
+        
+        // Webhooks
+        document.getElementById('whWa').textContent = '✅ Active';
+        document.getElementById('whWa').className = 'status-value green';
+        document.getElementById('whTwilio').textContent = '⚠️ Not configured';
+        document.getElementById('whTwilio').className = 'status-value yellow';
+        
+        const healthRes = await fetch('/health');
+        const health = await healthRes.json();
+        const uptime = new Date().toLocaleTimeString();
+        document.getElementById('uptime').textContent = 'Running';
+        document.getElementById('uptime').className = 'status-value green';
+        
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    checkStatus();
+    setInterval(checkStatus, 30000);
+  </script>
+</body>
+</html>

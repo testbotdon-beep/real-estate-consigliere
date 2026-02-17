@@ -1,0 +1,379 @@
+{
+  "agents": {},
+  "leads": {
+    "c692a14d-51c8-4e6e-934c-f16db82f331b": {
+      "id": "c692a14d-51c8-4e6e-934c-f16db82f331b",
+      "phone": "+6512345678",
+      "source": "whatsapp",
+      "status": "qualified",
+      "createdAt": "2026-02-17T00:56:43.869Z",
+      "lastContactAt": "2026-02-17T00:56:43.869Z",
+      "score": 85,
+      "priority": "hot",
+      "updatedAt": "2026-02-17T04:59:20.153Z"
+    },
+    "cf0f4c08-4cac-43c8-8edc-8d5c59a244b8": {
+      "id": "cf0f4c08-4cac-43c8-8edc-8d5c59a244b8",
+      "phone": "+6512345678",
+      "source": "whatsapp",
+      "status": "new",
+      "createdAt": "2026-02-17T00:56:59.520Z",
+      "lastContactAt": "2026-02-17T00:56:59.520Z"
+    },
+    "98c7ea31-f1f2-46af-a131-142c29798a9e": {
+      "id": "98c7ea31-f1f2-46af-a131-142c29798a9e",
+      "phone": "+6512345679",
+      "source": "whatsapp",
+      "status": "new",
+      "createdAt": "2026-02-17T00:57:16.824Z",
+      "lastContactAt": "2026-02-17T00:57:16.824Z"
+    },
+    "657f9181-aca3-4f1f-9f81-eae364d150f1": {
+      "id": "657f9181-aca3-4f1f-9f81-eae364d150f1",
+      "phone": "+6519999999",
+      "source": "whatsapp",
+      "status": "new",
+      "createdAt": "2026-02-17T01:10:00.543Z",
+      "lastContactAt": "2026-02-17T01:10:00.543Z"
+    },
+    "2f588df9-f0ce-4899-8469-cf7b0423caeb": {
+      "id": "2f588df9-f0ce-4899-8469-cf7b0423caeb",
+      "phone": "+6519999999",
+      "source": "whatsapp",
+      "status": "new",
+      "createdAt": "2026-02-17T04:51:20.472Z",
+      "lastContactAt": "2026-02-17T04:51:20.472Z"
+    },
+    "2765d6dc-37f6-4e04-9327-bb0775466bd8": {
+      "id": "2765d6dc-37f6-4e04-9327-bb0775466bd8",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:05:09.276Z",
+      "lastContactAt": "2026-02-17T07:05:09.276Z"
+    },
+    "df3bb72f-1431-411f-a855-5a4956bac3ae": {
+      "id": "df3bb72f-1431-411f-a855-5a4956bac3ae",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:06:08.056Z",
+      "lastContactAt": "2026-02-17T07:06:08.056Z"
+    },
+    "f1823fe5-c8d8-47cf-a345-6431db36476e": {
+      "id": "f1823fe5-c8d8-47cf-a345-6431db36476e",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:06:38.595Z",
+      "lastContactAt": "2026-02-17T07:06:38.595Z"
+    },
+    "8dfba98f-bb8f-4de5-9a9d-b01a7142016e": {
+      "id": "8dfba98f-bb8f-4de5-9a9d-b01a7142016e",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:06:49.660Z",
+      "lastContactAt": "2026-02-17T07:06:49.660Z"
+    },
+    "2be133cc-ad8c-4876-8b83-c34539c0a59c": {
+      "id": "2be133cc-ad8c-4876-8b83-c34539c0a59c",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:07:12.559Z",
+      "lastContactAt": "2026-02-17T07:07:12.559Z"
+    },
+    "07c83392-4bbd-4e74-9f4c-4da190873966": {
+      "id": "07c83392-4bbd-4e74-9f4c-4da190873966",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:08:56.814Z",
+      "lastContactAt": "2026-02-17T07:08:56.814Z"
+    },
+    "b42421ae-7dc7-4eff-bca5-259a3d536dd7": {
+      "id": "b42421ae-7dc7-4eff-bca5-259a3d536dd7",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:13:28.078Z",
+      "lastContactAt": "2026-02-17T07:13:28.078Z"
+    },
+    "a963c2b0-ce03-411d-8327-c9b6653c75e2": {
+      "id": "a963c2b0-ce03-411d-8327-c9b6653c75e2",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:13:46.405Z",
+      "lastContactAt": "2026-02-17T07:13:46.405Z"
+    },
+    "4d57698c-429a-444b-bc06-7cbbac463553": {
+      "id": "4d57698c-429a-444b-bc06-7cbbac463553",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:13:55.326Z",
+      "lastContactAt": "2026-02-17T07:13:55.326Z"
+    },
+    "2dc8eec6-e695-421d-8d95-23d51a643aae": {
+      "id": "2dc8eec6-e695-421d-8d95-23d51a643aae",
+      "phone": "+6591234567",
+      "name": "jon",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:14:08.739Z",
+      "lastContactAt": "2026-02-17T07:14:08.739Z"
+    },
+    "f32bfd6c-3dde-4c54-93e7-7d6bf627c0b3": {
+      "id": "f32bfd6c-3dde-4c54-93e7-7d6bf627c0b3",
+      "phone": "+6595678900",
+      "name": "mary, my number is 95678900",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:14:32.076Z",
+      "lastContactAt": "2026-02-17T07:14:32.076Z"
+    },
+    "e0ebce38-4634-411f-9ea8-44377cc4aca1": {
+      "id": "e0ebce38-4634-411f-9ea8-44377cc4aca1",
+      "phone": "+6595678900",
+      "name": "mary, my number is 95678900",
+      "source": "telegram",
+      "status": "new",
+      "score": 50,
+      "priority": "warm",
+      "createdAt": "2026-02-17T07:14:41.033Z",
+      "lastContactAt": "2026-02-17T07:14:41.033Z"
+    }
+  },
+  "conversations": {
+    "+6512345678": {
+      "id": "e4fae36d-5316-49c2-9186-8acd4bccf067",
+      "phone": "+6512345678",
+      "leadId": "cf0f4c08-4cac-43c8-8edc-8d5c59a244b8",
+      "messages": [
+        {
+          "id": "wamid.test124",
+          "type": "text",
+          "content": "My budget is around 1.5 million",
+          "direction": "inbound",
+          "timestamp": "2026-02-17T00:56:59.521Z"
+        },
+        {
+          "id": "f5b37189-2d19-4792-9d6b-9c79d4367cb2",
+          "type": "text",
+          "content": "Got it. Here's what we have:\n\n1. Bedok Resale Condo - $1.48M\n2. Tampines New Launch - $1.52M\n3. Pasir Ris Rise - $1.45M\n\n\nWhich one interests you?",
+          "direction": "outbound",
+          "timestamp": "2026-02-17T00:56:59.806Z"
+        }
+      ],
+      "createdAt": "2026-02-17T00:56:59.520Z",
+      "state": {
+        "stage": "selecting_property"
+      }
+    },
+    "+6512345679": {
+      "id": "f0ed6b26-a90c-4070-ac07-7751a78f3ad6",
+      "phone": "+6512345679",
+      "leadId": null,
+      "messages": [],
+      "createdAt": "2026-02-17T00:57:16.824Z"
+    },
+    "+6519999999": {
+      "id": "cab8c016-876d-4aea-b7e6-30ae033dc516",
+      "phone": "+6519999999",
+      "leadId": null,
+      "messages": [],
+      "createdAt": "2026-02-17T04:51:20.472Z"
+    }
+  },
+  "appointments": {
+    "9683b0a2-75a5-4c4d-9392-2280d7e299fd": {
+      "id": "9683b0a2-75a5-4c4d-9392-2280d7e299fd",
+      "agentId": "test-agent",
+      "clientName": "John Test",
+      "clientPhone": "+6511111111",
+      "propertyAddress": "Tampines New Launch",
+      "startTime": "2026-02-21T02:00:00.000Z",
+      "duration": 60,
+      "status": "pending",
+      "createdAt": "2026-02-17T03:30:54.012Z"
+    },
+    "b13be4ce-e858-4c27-af69-2a96fe4c3463": {
+      "id": "b13be4ce-e858-4c27-af69-2a96fe4c3463",
+      "agentId": "test-agent",
+      "clientName": "Auto Test Client",
+      "clientPhone": "+6512345678",
+      "propertyAddress": "Bedok Resale Condo",
+      "startTime": "2026-02-25T06:00:00.000Z",
+      "duration": 60,
+      "status": "pending",
+      "createdAt": "2026-02-17T04:50:47.230Z"
+    },
+    "418a0edc-072d-4478-8148-99e73cd0ea3e": {
+      "id": "418a0edc-072d-4478-8148-99e73cd0ea3e",
+      "agentId": "test-agent",
+      "clientName": "Gavin",
+      "clientPhone": "N/A",
+      "propertyAddress": "Property TBD",
+      "startTime": "2026-02-18T06:00:00.000Z",
+      "duration": 60,
+      "status": "pending",
+      "source": "telegram",
+      "createdAt": "2026-02-17T07:00:42.835Z",
+      "calendarEventId": null
+    },
+    "9d16db9c-9bfb-4e6b-a3c7-387e81d28321": {
+      "id": "9d16db9c-9bfb-4e6b-a3c7-387e81d28321",
+      "agentId": "test-agent",
+      "clientName": "jon",
+      "clientPhone": "+6591234567",
+      "propertyAddress": "Property TBD",
+      "startTime": "2026-02-18T06:00:00.000Z",
+      "duration": 60,
+      "status": "pending",
+      "source": "telegram",
+      "createdAt": "2026-02-17T07:07:11.852Z",
+      "calendarEventId": null
+    },
+    "f9b8a579-8c37-4354-a5a2-c6daaeaa2149": {
+      "id": "f9b8a579-8c37-4354-a5a2-c6daaeaa2149",
+      "agentId": "test-agent",
+      "clientName": "jon",
+      "clientPhone": "+6591234567",
+      "propertyAddress": "Property TBD",
+      "startTime": "2026-02-18T06:00:00.000Z",
+      "duration": 60,
+      "status": "pending",
+      "source": "telegram",
+      "createdAt": "2026-02-17T07:14:08.012Z",
+      "calendarEventId": null
+    }
+  },
+  "properties": {
+    "prop_1": {
+      "id": "prop_1",
+      "name": "Bedok Resale Condo",
+      "price": "$1.48M",
+      "size": "3BR",
+      "location": "East",
+      "address": "Bedok, Singapore",
+      "description": "Well-maintained 3-bedroom condo near Bedok MRT",
+      "status": "active",
+      "createdAt": "2026-02-17T00:00:00.000Z"
+    },
+    "prop_2": {
+      "id": "prop_2",
+      "name": "Tampines New Launch",
+      "price": "$1.52M",
+      "size": "3BR",
+      "location": "East",
+      "address": "Tampines, Singapore",
+      "description": "Brand new 3BR launch in prime Tampines location",
+      "status": "active",
+      "createdAt": "2026-02-17T00:00:00.000Z"
+    },
+    "prop_3": {
+      "id": "prop_3",
+      "name": "Pasir Ris Rise",
+      "price": "$1.45M",
+      "size": "3BR",
+      "location": "East",
+      "address": "Pasir Ris, Singapore",
+      "description": "Spacious 3BR near Pasir Ris Park and beach",
+      "status": "active",
+      "createdAt": "2026-02-17T00:00:00.000Z"
+    }
+  },
+  "templates": {
+    "tpl_greeting": {
+      "id": "tpl_greeting",
+      "name": "greeting",
+      "body": "Hey there! {{agent_name}} asked me to reach out. I'm handling the inquiries for him—how can I help?",
+      "buttons": [],
+      "category": "greeting"
+    },
+    "tpl_followup": {
+      "id": "tpl_followup",
+      "name": "followup",
+      "body": "Hey, just wanted to follow up on our earlier chat. Still hunting for the right place? Happy to arrange viewings whenever you're free.",
+      "buttons": [
+        "Yes, let's set something up",
+        "Not ready yet"
+      ],
+      "category": "followup"
+    },
+    "tpl_booking_confirmed": {
+      "id": "tpl_booking_confirmed",
+      "name": "booking_confirmed",
+      "body": "All sorted! Your viewing is confirmed.\n\n📅 {{date}} at {{time}}\n📍 {{property}}\n\n{{agent_name}} will be there to show you around. Looking forward to it!",
+      "buttons": [],
+      "category": "booking"
+    },
+    "tpl_viewing_reminder": {
+      "id": "tpl_viewing_reminder",
+      "name": "viewing_reminder",
+      "body": "Quick reminder about your viewing tomorrow:\n\n📍 {{property}}\n⏰ {{time}}\n\nSee you there! Let me know if anything comes up.",
+      "buttons": [],
+      "category": "reminder"
+    },
+    "tpl_thanks": {
+      "id": "tpl_thanks",
+      "name": "thanks",
+      "body": "Thanks for reaching out! {{agent_name}} will get back to you shortly. In the meantime, feel free to browse our listings or let me know what you're looking for.",
+      "buttons": [],
+      "category": "general"
+    }
+  },
+  "waitlist": {
+    "b4941b7d-abae-4050-9b42-5103b1d2217a": {
+      "id": "b4941b7d-abae-4050-9b42-5103b1d2217a",
+      "email": "test@example.com",
+      "name": "Test Agent",
+      "phone": "",
+      "notes": "",
+      "status": "pending",
+      "createdAt": "2026-02-17T04:55:01.450Z"
+    }
+  },
+  "notifications": {
+    "1771304410999": {
+      "id": "1771304410999",
+      "type": "booking_confirmation",
+      "appointmentId": "9683b0a2-75a5-4c4d-9392-2280d7e299fd",
+      "status": "sent",
+      "createdAt": "2026-02-17T05:00:10.999Z"
+    }
+  }
+}

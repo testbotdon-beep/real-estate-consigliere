@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book a Viewing | Consigliere</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; padding: 40px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 28px; margin-bottom: 10px; text-align: center; }
+    .subtitle { color: #888; margin-bottom: 40px; text-align: center; }
+    .card { background: #1a1a2e; border-radius: 12px; padding: 32px; border: 1px solid #333; }
+    .form-group { margin-bottom: 24px; }
+    .form-group label { display: block; color: #aaa; margin-bottom: 8px; font-size: 14px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 14px; background: #0f0f0f; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 16px; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #4ade80; }
+    .property-card { background: #252540; border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+    .property-card:hover { border-color: #4ade80; }
+    .property-card.selected { border-color: #4ade80; background: #2a2a50; }
+    .property-card h3 { color: #fff; margin-bottom: 8px; }
+    .property-card p { color: #aaa; font-size: 14px; }
+    .property-card .price { color: #4ade80; font-weight: 600; font-size: 18px; margin-top: 8px; }
+    .btn { background: #4ade80; color: #000; border: none; padding: 16px 32px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; width: 100%; }
+    .btn:hover { background: #22c55e; }
+    .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .success { text-align: center; padding: 40px; }
+    .success h2 { color: #4ade80; margin-bottom: 16px; }
+    .success p { color: #aaa; margin-bottom: 8px; }
+    .date-time { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📅 Book a Viewing</h1>
+    <p class="subtitle">Schedule a property viewing in minutes</p>
+    
+    <div id="bookingForm" class="card">
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="clientName" placeholder="John Doe">
+      </div>
+      
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="clientPhone" placeholder="+6512345678">
+      </div>
+      
+      <div class="form-group">
+        <label>Select a Property</label>
+        <div id="propertyList">Loading properties...</div>
+      </div>
+      
+      <div class="form-group">
+        <label>Preferred Date & Time</label>
+        <div class="date-time">
+          <input type="date" id="bookingDate" min="">
+          <select id="bookingTime">
+            <option value="">Select time</option>
+            <option value="09:00">9:00 AM</option>
+            <option value="10:00">10:00 AM</option>
+            <option value="11:00">11:00 AM</option>
+            <option value="12:00">12:00 PM</option>
+            <option value="13:00">1:00 PM</option>
+            <option value="14:00">2:00 PM</option>
+            <option value="15:00">3:00 PM</option>
+            <option value="16:00">4:00 PM</option>
+            <option value="17:00">5:00 PM</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Additional Notes (optional)</label>
+        <textarea id="clientNotes" placeholder="Any special requests..." rows="3"></textarea>
+      </div>
+      
+      <button class="btn" onclick="submitBooking()">📅 Request Booking</button>
+    </div>
+    
+    <div id="successMessage" class="card hidden">
+      <div class="success">
+        <h2>✅ Request Submitted!</h2>
+        <p>Your viewing request has been sent.</p>
+        <p>You'll receive a confirmation once the agent approves.</p>
+        <p style="margin-top: 20px; color: #666;">Reference will be sent to your WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let selectedProperty = null;
+    
+    // Set minimum date to today
+    document.getElementById('bookingDate').min = new Date().toISOString().split('T')[0];
+    
+    // Load properties
+    async function loadProperties() {
+      try {
+        const res = await fetch('/api/properties');
+        const data = await res.json();
+        const props = data.properties || [];
+        
+        document.getElementById('propertyList').innerHTML = props.map(p => `
+          <div class="property-card" onclick="selectProperty('${p.id}', this)">
+            <h3>${p.name}</h3>
+            <p>${p.description}</p>
+            <p>${p.size} • ${p.location}</p>
+            <div class="price">${p.price}</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('propertyList').innerHTML = '<p style="color: #666;">No properties available</p>';
+      }
+    }
+    
+    function selectProperty(id, el) {
+      document.querySelectorAll('.property-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedProperty = id;
+    }
+    
+    async function submitBooking() {
+      const name = document.getElementById('clientName').value;
+      const phone = document.getElementById('clientPhone').value;
+      const date = document.getElementById('bookingDate').value;
+      const time = document.getElementById('bookingTime').value;
+      const notes = document.getElementById('clientNotes').value;
+      
+      if (!name || !phone || !selectedProperty || !date || !time) {
+        alert('Please fill in all required fields');
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/calendar/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: 'default',
+            clientName: name,
+            clientPhone: phone,
+            propertyId: selectedProperty,
+            date,
+            time,
+            notes
+          })
+        });
+        
+        if (res.ok) {
+          document.getElementById('bookingForm').classList.add('hidden');
+          document.getElementById('successMessage').classList.remove('hidden');
+        } else {
+          alert('Error submitting booking. Please try again.');
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+    
+    loadProperties();
+  </script>
+</body>
+</html>

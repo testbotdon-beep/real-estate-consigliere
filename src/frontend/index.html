@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consigliere | Your Right-Hand Man for Real Estate</title>
+  <meta name="description" content="Your AI-powered personal assistant for real estate. Handles WhatsApp chats, schedules viewings, qualifies leads — 24/7. 80% cheaper than a human PA.">
+  <meta name="keywords" content="real estate assistant, AI personal assistant, WhatsApp automation, property agent tools, real estate CRM">
+  <meta property="og:title" content="Consigliere - Your Right-Hand Man for Real Estate">
+  <meta property="og:description" content="Your AI-powered personal assistant that never sleeps. Handles client chats, schedules, and leads.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://consigliere.app">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Loading Screen */
+    #loader { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.5s ease; }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader .spinner { width: 50px; height: 50px; border: 3px solid #222; border-top-color: #2997ff; border-radius: 50%; animation: spin 1s linear infinite; }
+    #loader .logo { margin-top: 20px; font-size: 24px; font-weight: 700; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #000; color: #f5f5f7; }
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 16px 60px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid transparent; transition: all 0.3s ease; }
+    nav.scrolled { background: rgba(0,0,0,0.95); border-bottom-color: #222; }
+    .logo { font-size: 22px; font-weight: 700; }
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a { color: #86868b; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    .nav-btn { padding: 8px 18px; background: #2997ff; border-radius: 20px; color: white !important; font-weight: 500; font-size: 14px; transition: all 0.3s ease; }
+    .nav-btn:hover { background: #007aff; transform: scale(1.05); box-shadow: 0 4px 20px rgba(41,151,255,0.4); }
+    .hero { min-height: 100vh; background: linear-gradient(135deg, #000 0%, #0a0a1a 25%, #0d1520 50%, #0a0a1a 75%, #000 100%); background-size: 400% 400%; animation: heroGradient 15s ease infinite; padding-top: 80px; display: flex; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 50% 30%, rgba(41,151,255,0.08) 0%, transparent 50%); pointer-events: none; }
+    .hero-content { max-width: 800px; padding: 40px; position: relative; z-index: 1; }
+    @keyframes heroGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    .hero h1 { font-size: 52px; font-weight: 700; letter-spacing: -1px; margin-bottom: 20px; line-height: 1.2; }
+    .hero h1 span { color: #2997ff; }
+    .hero p { font-size: 20px; color: #86868b; margin-bottom: 36px; line-height: 1.6; }
+    .btn { padding: 16px 32px; border-radius: 30px; font-size: 16px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s ease; }
+    .btn-primary { background: #2997ff; color: white; }
+    .btn-primary:hover { background: #007aff; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(41,151,255,0.4); }
+    .btn-secondary { background: #2d2d2f; color: #f5f5f7; border: 1px solid #444; }
+    .btn-secondary:hover { background: #3d3d3f; border-color: #555; transform: translateY(-2px); }
+    .section { padding: 100px 60px; }
+    .section.dark { background: #0d0d0f; }
+    .section-header { text-align: center; margin-bottom: 60px; max-width: 700px; margin-left: auto; margin-right: auto; }
+    .section-header h2 { font-size: 38px; font-weight: 600; margin-bottom: 16px; }
+    .section-header p { color: #86868b; font-size: 18px; line-height: 1.6; }
+    .story { background: linear-gradient(180deg, #000 0%, #1a1a2e 100%); padding: 120px 60px; text-align: center; }
+    .story h2 { font-size: 36px; font-weight: 600; margin-bottom: 24px; line-height: 1.3; }
+    .story p { font-size: 18px; color: #86868b; line-height: 1.8; margin-bottom: 20px; }
+    .story .highlight { color: #f5f5f7; font-style: italic; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .story > div { animation: fadeInUp 0.8s ease-out; }
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 900px; margin: 0 auto; }
+    .comp-card { background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 40px; text-align: center; }
+    .comp-card h3 { font-size: 24px; font-weight: 600; margin-bottom: 20px; }
+    .comp-card ul { list-style: none; text-align: left; }
+    .comp-card li { padding: 12px 0; color: #86868b; border-bottom: 1px solid #2a2a2e; font-size: 15px; }
+    .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
+    .feature-card { background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px; display: flex; gap: 20px; }
+    .feature-icon { width: 56px; height: 56px; border-radius: 14px; background: rgba(41,151,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+    .feature-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { color: #86868b; font-size: 14px; line-height: 1.6; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1200px; margin: 0 auto; }
+    .pricing-card { background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px; text-align: center; display: flex; flex-direction: column; }
+    .pricing-card.featured { border-color: #2997ff; position: relative; }
+    .pricing-card.featured::before { content: 'Most Popular'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #2997ff; padding: 4px 14px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .pricing-card h3 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+    .pricing-card .price { font-size: 42px; font-weight: 700; margin: 20px 0 5px; }
+    .pricing-card .price span { font-size: 16px; color: #86868b; }
+    .pricing-card .setup { font-size: 13px; color: #666; margin-bottom: 20px; }
+    .pricing-card ul { list-style: none; text-align: left; margin-bottom: 28px; flex: 1; }
+    .pricing-card li { padding: 10px 0; color: #86868b; font-size: 14px; border-bottom: 1px solid #2a2a2e; }
+    .pricing-card li::before { content: '✓'; color: #30d158; margin-right: 10px; }
+    footer { padding: 40px; text-align: center; color: #86868b; border-top: 1px solid #222; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 200; align-items: center; justify-content: center; }
+    .modal-box { background: #151517; border: 1px solid #2a2a2e; border-radius: 24px; padding: 40px; width: 90%; max-width: 450px; }
+    .modal-box h2 { text-align: center; margin-bottom: 24px; font-size: 24px; }
+    .modal-box input { width: 100%; padding: 16px; background: #1f1f23; border: 1px solid #2a2a2e; border-radius: 12px; color: white; margin-bottom: 16px; font-size: 15px; }
+    .modal-box label { display: block; font-size: 13px; color: #86868b; margin-bottom: 8px; text-align: left; }
+    .modal-box button { width: 100%; padding: 16px; background: #2997ff; border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 10px; }
+    .onboarding { display: none; position: fixed; inset: 0; background: #0a0a0c; z-index: 300; }
+    .onboard-header { padding: 20px 30px; background: #151517; border-bottom: 1px solid #2a2a2e; display: flex; justify-content: space-between; align-items: center; }
+    .onboard-header h2 { font-size: 18px; }
+    .onboard-content { padding: 40px; max-width: 600px; margin: 0 auto; }
+    .onboard-step { display: none; }
+    .onboard-step.active { display: block; }
+    .onboard-step h3 { font-size: 24px; margin-bottom: 12px; }
+    .onboard-step p { color: #86868b; margin-bottom: 30px; }
+    .connect-btn { display: flex; align-items: center; gap: 16px; padding: 20px; background: #1f1f23; border: 1px solid #2a2a2e; border-radius: 16px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s; }
+    .connect-btn:hover { border-color: #2997ff; }
+    .connect-btn .icon { font-size: 28px; }
+    .connect-btn .text { flex: 1; }
+    .connect-btn .text h4 { font-size: 16px; margin-bottom: 4px; }
+    .connect-btn .text p { font-size: 13px; color: #86868b; margin: 0; }
+    .connect-btn .status { color: #30d158; font-size: 14px; }
+    .onboard-nav { display: flex; justify-content: space-between; margin-top: 40px; }
+    .onboard-nav button { padding: 14px 32px; border-radius: 30px; font-size: 15px; font-weight: 500; cursor: pointer; border: none; }
+    .onboard-nav .back { background: #2d2d2f; color: #f5f5f7; border: 1px solid #444; }
+    .onboard-nav .next { background: #2997ff; color: white; }
+    .demo { display: none; position: fixed; inset: 0; background: #0a0a0c; z-index: 400; }
+    .demo-header { padding: 20px 30px; background: #151517; border-bottom: 1px solid #2a2a2e; display: flex; justify-content: space-between; align-items: center; }
+    .demo-header h2 { font-size: 18px; }
+    .demo-exit { padding: 10px 20px; background: #2d2d2f; border: 1px solid #444; border-radius: 20px; color: #f5f5f7; cursor: pointer; font-size: 14px; }
+    .demo-main { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 140px); }
+    .demo-panel { padding: 24px; overflow-y: auto; }
+    .demo-panel h3 { font-size: 14px; color: #86868b; text-transform: uppercase; margin-bottom: 16px; }
+    .chat-area { background: #151517; border-radius: 16px; padding: 20px; height: calc(100% - 60px); overflow-y: auto; }
+    .chat-msg { max-width: 75%; padding: 14px 18px; border-radius: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 12px; }
+    .chat-msg.pa { background: #1f1f23; border-bottom-left-radius: 4px; }
+    .chat-msg.client { background: #2997ff; margin-left: auto; border-bottom-right-radius: 4px; }
+    .chat-msg .time { font-size: 11px; opacity: 0.7; margin-top: 6px; }
+    .chat-input { display: flex; gap: 10px; margin-top: 16px; }
+    .chat-input input { flex: 1; padding: 14px 18px; background: #1f1f23; border: 1px solid #2a2a2e; border-radius: 12px; color: white; font-size: 15px; }
+    .chat-input button { padding: 14px 24px; background: #2997ff; border: none; border-radius: 12px; color: white; font-weight: 500; cursor: pointer; }
+    .dash-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .dash-stat { background: #1f1f23; border-radius: 12px; padding: 16px; text-align: center; }
+    .dash-stat-val { font-size: 28px; font-weight: 700; }
+    .dash-stat-lbl { font-size: 12px; color: #86868b; margin-top: 4px; }
+    .dash-card { background: #1f1f23; border: 1px solid #2a2a2e; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .dash-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .dash-card p { font-size: 13px; color: #86868b; margin-bottom: 10px; }
+    .dash-btns { display: flex; gap: 8px; }
+    .dash-btns button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
+    .btn-green { background: #30d158; color: white; }
+    .btn-red { background: #2d2d2f; color: #f5f5f7; border: 1px solid #444; }
+    .demo-nav { padding: 20px 30px; background: #151517; border-top: 1px solid #2a2a2e; display: flex; justify-content: center; gap: 20px; }
+    .demo-nav button { padding: 16px 40px; border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer; border: none; }
+    .demo-nav .prev { background: #2d2d2f; color: #f5f5f7; border: 1px solid #444; }
+    .demo-nav .next { background: #2997ff; color: white; }
+    .step-indicator { text-align: center; color: #86868b; font-size: 14px; align-self: center; }
+    @media (max-width: 900px) { .comparison, .features-grid, .pricing-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 700px) { nav { padding: 16px 20px; } .nav-links { display: none; } .hero h1 { font-size: 36px; } .section { padding: 60px 20px; } .section-header h2 { font-size: 28px; } .testimonials-grid { grid-template-columns: 1fr !important; } }
+    @media (max-width: 500px) { .hero h1 { font-size: 28px; } .hero p { font-size: 16px; } .btn { padding: 14px 24px; font-size: 15px; } }
+    
+    /* Scroll Animations */
+    .fade-in { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+    .fade-in-delay-1 { transition-delay: 0.1s; }
+    .fade-in-delay-2 { transition-delay: 0.2s; }
+    .fade-in-delay-3 { transition-delay: 0.3s; }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="logo">🦅</div>
+  </div>
+  
+  <!-- Main Content -->
+  <div id="landing">
+    <nav>
+      <div class="logo">🦅 Consigliere</div>
+      <div class="nav-links">
+        <a href="#story">The Story</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#" class="nav-btn" onclick="openSignup()">Get Started</a>
+      </div>
+    </nav>
+    
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Your Right-Hand Man<br><span>for Real Estate Success</span></h1>
+        <p>The trusted advisor who works 24/7 so you don't have to. You enjoy your life. We handle the headaches.</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button class="btn btn-primary" onclick="openSignup()">Get Started</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('story').scrollIntoView()">Our Story</button>
+        </div>
+      </div>
+    </section>
+    
+    <section class="story" id="story">
+      <div style="max-width: 800px; margin: 0 auto;">
+        <h2 style="font-size: 38px; font-weight: 600; margin-bottom: 32px; line-height: 1.3;">You went into real estate to build a better life.<br><span style="color: #2997ff;">Not to spend it on endless admin.</span></h2>
+        
+        <p style="font-size: 18px; color: #a1a1a6; line-height: 1.8; margin-bottom: 24px;">The truth is, your personal assistant costs <strong style="color: #fff;">$4,000+ a month</strong> and still can't be everywhere. Deals slip away. Weekends disappear. Time with your family becomes an afterthought.</p>
+        
+        <div style="background: linear-gradient(135deg, rgba(41,151,255,0.1) 0%, rgba(0,102,204,0.1) 100%); border: 1px solid rgba(41,151,255,0.3); border-radius: 20px; padding: 32px; margin: 40px 0; text-align: center;">
+          <p style="font-size: 22px; font-style: italic; color: #f5f5f7; line-height: 1.6;">"What if you had a consigliere — a trusted partner who never sleeps, never takes sick days, never burns out?"</p>
+        </div>
+        
+        <p style="font-size: 18px; color: #a1a1a6; line-height: 1.8; margin-bottom: 24px;">One who handles your client conversations, schedules your viewings, qualifies your leads — and only alerts you when it's time to close?</p>
+        
+        <div style="display: flex; gap: 40px; justify-content: center; margin-top: 50px; flex-wrap: wrap;">
+          <div style="text-align: center;">
+            <div style="font-size: 48px; font-weight: 700; color: #2997ff;">80%</div>
+            <div style="font-size: 14px; color: #86868b; margin-top: 8px;">cheaper than a PA</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 48px; font-weight: 700; color: #30d158;">24/7</div>
+            <div style="font-size: 14px; color: #86868b; margin-top: 8px;">never sleeps</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 48px; font-weight: 700; color: #ff9500;">100%</div>
+            <div style="font-size: 14px; color: #86868b; margin-top: 8px;">dedicated to you</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 50px; padding-top: 40px; border-top: 1px solid #2a2a2e;">
+          <p style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">That's what we built.</p>
+          <p style="font-size: 26px; color: #2997ff; font-weight: 700;">Your right-hand man. On standby.</p>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section dark">
+      <div class="section-header"><h2>The Old Way vs Consigliere</h2></div>
+      <div class="comparison">
+        <div class="comp-card"><h3 style="color:#ff453a;">The Old Way</h3><ul><li>Late nights answering messages</li><li>Weekends lost to admin</li><li>PA costs $4,000+/month</li><li>Deals slip through the cracks</li><li>You can't be everywhere</li></ul></div>
+        <div class="comp-card"><h3 style="color:#30d158;">With Consigliere</h3><ul><li>24/7 automated responses</li><li>Your weekends are yours</li><li>From $50/month</li><li>Every lead is captured</li><li>We handle the follow-up</li></ul></div>
+      </div>
+    </section>
+    
+    <section class="section" id="how-it-works">
+      <div class="section-header"><h2>What Consigliere Does</h2><p>Your right-hand man handles everything. You focus on closing.</p></div>
+      <div class="features-grid">
+        <div class="feature-card"><div class="feature-icon">💬</div><div><h3>Knows Your Clients</h3><p>Engages instantly on WhatsApp. Qualifies leads automatically.</p></div></div>
+        <div class="feature-card"><div class="feature-icon">🏠</div><div><h3>Finds the Right Properties</h3><p>Matches client preferences with your listings.</p></div></div>
+        <div class="feature-card"><div class="feature-icon">📅</div><div><h3>Books Viewings Automatically</h3><p>Checks your calendar. Books viewings. Sends invites.</p></div></div>
+        <div class="feature-card"><div class="feature-icon">🔔</div><div><h3>You're Always in Control</h3><p>Every booking needs your approval. No mistakes.</p></div></div>
+      </div>
+    </section>
+    
+    <section class="section dark" id="pricing">
+      <div class="section-header"><h2>Simple Pricing</h2><p>Choose how you want to own your agent</p></div>
+      <div class="pricing-grid">
+        <div class="pricing-card"><h3>Soldier</h3><div class="price">$29<span>/mo</span></div><p class="setup">Self-serve</p><ul><li>WhatsApp Auto-Reply</li><li>Basic Scheduling</li><li>Unlimited Leads</li></ul><button class="btn btn-secondary" onclick="openSignup()">Get Started</button></div>
+        <div class="pricing-card featured"><h3>Capo</h3><div class="price">$59<span>/mo</span></div><p class="setup">Self-serve</p><ul><li>Property Matching</li><li>Smart Scheduling</li><li>CRM Integration</li></ul><button class="btn btn-primary" onclick="openSignup()">Get Started</button></div>
+        <div class="pricing-card"><h3>Consigliere</h3><div class="price">$249<span> one-time</span></div><p class="setup">+ $99/mo • Full setup</p><ul><li>Full Setup Service</li><li>Local Onboarding</li><li>14-Day Live Support</li></ul><button class="btn btn-secondary" onclick="openSignup()">Get Started</button></div>
+        <div class="pricing-card"><h3>Famiglia</h3><div class="price">$499<span> one-time</span></div><p class="setup">+ $199/mo • Unlimited</p><ul><li>Multi-Agent Setup</li><li>Full Onboarding</li><li>Unlimited Support</li></ul><button class="btn btn-secondary" onclick="openSignup()">Contact Sales</button></div>
+      </div>
+    </section>
+    
+    <!-- TESTIMONIALS -->
+    <section class="section dark">
+      <div class="section-header"><h2>Trusted by Top Agents</h2><p>See what real estate professionals say about Consigliere</p></div>
+      <div style="max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px;">
+          <div style="color: #2997ff; font-size: 24px; margin-bottom: 16px;">⭐⭐⭐⭐⭐</div>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.7; margin-bottom: 20px;">"I used to spend 4 hours daily just responding to WhatsApp messages. Now Consigliere handles it all — I just approve the bookings."</p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #2997ff, #0066cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">TJ</div>
+            <div><div style="font-weight: 600;">Tan Jun</div><div style="font-size: 13px; color: #666;">ERA Agent, 8 years</div></div>
+          </div>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px;">
+          <div style="color: #2997ff; font-size: 24px; margin-bottom: 16px;">⭐⭐⭐⭐⭐</div>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.7; margin-bottom: 20px;">"My clients think I have a assistant working 24/7. The property matching is incredibly accurate — it knows what my buyers want."</p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #30d158, #34c759); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">SL</div>
+            <div><div style="font-weight: 600;">Sarah Lim</div><div style="font-size: 13px; color: #666;">Propnex Agent, 5 years</div></div>
+          </div>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 20px; padding: 32px;">
+          <div style="color: #2997ff; font-size: 24px; margin-bottom: 16px;">⭐⭐⭐⭐⭐</div>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.7; margin-bottom: 20px;">"Worth every dollar. I closed 3 deals last month that I would have missed because Consigliere caught the leads while I was in showings."</p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #ff9500, #ff7700); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">CK</div>
+            <div><div style="font-weight: 600;">Chee Keong</div><div style="font-size: 13px; color: #666;">OrangeTee Agent, 12 years</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- FAQ -->
+    <section class="section" style="background: #0a0a0c;">
+      <div class="section-header"><h2>Frequently Asked Questions</h2><p>Everything you need to know about Consigliere</p></div>
+      <div style="max-width: 800px; margin: 0 auto;">
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 16px; padding: 24px; margin-bottom: 16px;">
+          <h4 style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">How does the WhatsApp integration work?</h4>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.6;">Consigliere connects directly to your WhatsApp Business account. When clients message you, AI responds instantly — 24/7. You only get notified when approval is needed.</p>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 16px; padding: 24px; margin-bottom: 16px;">
+          <h4 style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">Do I need technical skills to set this up?</h4>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.6;">Not at all. Our Consigliere ($249) and Famiglia ($499) tiers include full onboarding. We'll set everything up for you in under 30 minutes.</p>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 16px; padding: 24px; margin-bottom: 16px;">
+          <h4 style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">Can I try it before committing?</h4>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.6;">Yes. The Soldier ($29/mo) and Capo ($59/mo) tiers are fully functional. Start small, scale up as you see results.</p>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 16px; padding: 24px; margin-bottom: 16px;">
+          <h4 style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">What happens if I miss a client message?</h4>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.6;">Never again. Consigliere responds instantly to every message, even at 2am. You'll never lose a lead to a slow response.</p>
+        </div>
+        <div style="background: #151517; border: 1px solid #2a2a2e; border-radius: 16px; padding: 24px; margin-bottom: 16px;">
+          <h4 style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">Is my client data secure?</h4>
+          <p style="color: #86868b; font-size: 15px; line-height: 1.6;">100%. We use enterprise-grade encryption and never share your data. Your client information stays yours.</p>
+        </div>
+      </div>
+    </section>
+    
+    <!-- COMING SOON -->
+    <section class="section dark" style="text-align: center; padding: 80px 60px;">
+      <div style="display: inline-block; background: rgba(41,151,255,0.15); border: 1px solid #2997ff; border-radius: 30px; padding: 8px 20px; margin-bottom: 24px;">
+        <span style="color: #2997ff; font-size: 14px; font-weight: 600;">🚀 COMING SOON</span>
+      </div>
+      <h2 style="font-size: 32px; font-weight: 600; margin-bottom: 16px;">Real WhatsApp Integration</h2>
+      <p style="color: #86868b; font-size: 17px; max-width: 500px; margin: 0 auto 32px;">We're connecting directly to WhatsApp Business API. No third-party apps. Just your real number, working 24/7.</p>
+      
+      <!-- Email Capture -->
+      <form id="waitlistForm" onsubmit="submitWaitlist(event)" style="max-width: 400px; margin: 0 auto 20px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+        <input type="email" id="waitlistEmail" placeholder="Enter your email" required style="flex: 1; min-width: 200px; padding: 14px 20px; border-radius: 25px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 15px; outline: none; transition: border-color 0.3s;">
+        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">Join Waitlist</button>
+      </form>
+      <p id="waitlistMsg" style="color: #30d158; font-size: 14px; display: none;">✓ You're on the list! We'll be in touch.</p>
+      
+      <div style="margin-top: 30px; display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px; color: #666; font-size: 13px;"><span style="color: #30d158;">✓</span> No credit card</div>
+        <div style="display: flex; align-items: center; gap: 8px; color: #666; font-size: 13px;"><span style="color: #30d158;">✓</span> Early access</div>
+        <div style="display: flex; align-items: center; gap: 8px; color: #666; font-size: 13px;"><span style="color: #30d158;">✓</span> Special pricing</div>
+      </div>
+    </section>
+    
+    <footer><p>🦅 Consigliere — Your Right-Hand Man for Real Estate</p></footer>
+  </div>
+
+  <!-- SIGNUP -->
+  <div class="modal" id="signupModal">
+    <div class="modal-box">
+      <h2>Get Started</h2>
+      <form id="signupForm" onsubmit="handleSignup(event)">
+        <label>Your Name</label>
+        <input type="text" id="userName" placeholder="John Smith" required>
+        <label>Email</label>
+        <input type="email" id="userEmail" placeholder="john@agency.com" required>
+        <button type="submit">Continue to Setup</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ONBOARDING -->
+  <div class="onboarding" id="onboarding">
+    <div class="onboard-header">
+      <h2>🦅 Consigliere — Setup</h2>
+      <button onclick="skipOnboarding()" style="padding:8px 16px;background:#2d2d2f;border:1px solid #444;border-radius:16px;color:#f5f5f7;cursor:pointer;">Skip for Demo</button>
+    </div>
+    <div class="onboard-content">
+      <div class="onboard-step active" data-step="1">
+        <h3>Name Your Agent</h3>
+        <p>What name should your agent use when responding to clients?</p>
+        <input type="text" id="agentName" placeholder="e.g. John's Assistant" style="width:100%;padding:16px;background:#1f1f23;border:1px solid #2a2a2e;border-radius:12px;color:white;font-size:16px;">
+        <div class="onboard-nav">
+          <button class="back" onclick="closeOnboarding()">Cancel</button>
+          <button class="next" onclick="nextOnboardStep(2)">Continue</button>
+        </div>
+      </div>
+      <div class="onboard-step" data-step="2">
+        <h3>Connect WhatsApp</h3>
+        <p>Link your WhatsApp Business account.</p>
+        <div class="connect-btn" onclick="connectWhatsApp()">
+          <div class="icon">💬</div>
+          <div class="text"><h4>WhatsApp Business</h4><p>Connect your business number</p></div>
+          <div class="status" id="waStatus">Connect →</div>
+        </div>
+        <div class="onboard-nav">
+          <button class="back" onclick="nextOnboardStep(1)">Back</button>
+          <button class="next" onclick="nextOnboardStep(3)">Continue</button>
+        </div>
+      </div>
+      <div class="onboard-step" data-step="3">
+        <h3>Connect Google</h3>
+        <p>Link your calendar for automatic scheduling.</p>
+        <div class="connect-btn" onclick="connectGoogle()">
+          <div class="icon">📅</div>
+          <div class="text"><h4>Google Calendar</h4><p>Sync your schedule</p></div>
+          <div class="status" id="gStatus">Connect →</div>
+        </div>
+        <div class="onboard-nav">
+          <button class="back" onclick="nextOnboardStep(2)">Back</button>
+          <button class="next" onclick="finishOnboarding()">Launch Agent →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEMO -->
+  <script>
+    // Loading screen
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        document.getElementById('loader').classList.add('hidden');
+      }, 800);
+    });
+    
+    // Nav scroll effect
+    window.addEventListener('scroll', function() {
+      var nav = document.querySelector('nav');
+      if (window.scrollY > 50) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
+    
+    // Scroll animations
+    var observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+    
+    document.querySelectorAll('.section, .story, .comparison, .features-grid, .pricing-grid, .testimonials-grid > div').forEach(function(el) {
+      el.classList.add('fade-in');
+      observer.observe(el);
+    });
+    
+    function submitWaitlist(e) {
+      e.preventDefault();
+      var email = document.getElementById('waitlistEmail').value;
+      var msg = document.getElementById('waitlistMsg');
+      var form = document.getElementById('waitlistForm');
+      
+      // Send to API
+      fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        form.style.display = 'none';
+        msg.style.display = 'block';
+      })
+      .catch(function(err) {
+        // Fallback to localStorage
+        var waitlist = JSON.parse(localStorage.getItem('waitlist') || '[]');
+        if (!waitlist.includes(email)) {
+          waitlist.push(email);
+          localStorage.setItem('waitlist', JSON.stringify(waitlist));
+        }
+        form.style.display = 'none';
+        msg.style.display = 'block';
+      });
+    }
+    
+    function openSignup() { document.getElementById('landing').style.display = 'none'; document.getElementById('signupModal').style.display = 'flex'; }
+    function closeSignup() { document.getElementById('signupModal').style.display = 'none'; document.getElementById('landing').style.display = 'block'; }
+    
+    function handleSignup(e) {
+      e.preventDefault();
+      document.getElementById('signupModal').style.display = 'none';
+      document.getElementById('onboarding').style.display = 'block';
+    }
+    
+    function closeOnboarding() { document.getElementById('onboarding').style.display = 'none'; document.getElementById('landing').style.display = 'block'; }
+    
+    function nextOnboardStep(n) {
+      document.querySelectorAll('.onboard-step').forEach(s => s.classList.remove('active'));
+      document.querySelector('.onboard-step[data-step="'+n+'"]').classList.add('active');
+    }
+    
+    function connectWhatsApp() { 
+      document.getElementById('waStatus').innerHTML = '✓ Connected'; 
+      document.getElementById('waStatus').style.color = '#30d158'; 
+    }
+    function connectGoogle() { 
+      document.getElementById('gStatus').innerHTML = '✓ Connected'; 
+      document.getElementById('gStatus').style.color = '#30d158'; 
+    }
+    function finishOnboarding() { 
+      document.getElementById('onboarding').style.display = 'none'; 
+      alert('Thanks! We will be in touch shortly.');
+    }
+  </script>
+</body>
+</html>
