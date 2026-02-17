@@ -1,14 +1,87 @@
-// Telegram Bot - With Booking Flow & Lead Scoring
+// Telegram Bot - With LLM & Booking Flow
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// In-memory conversation states & leads
+// In-memory conversation history & leads
+const conversationHistory = new Map(); // chatId -> [{role, content}]
 const conversationStates = new Map();
 const leads = new Map(); // chatId -> lead data
+
+// LLM System prompt - The Consigliere persona
+const SYSTEM_PROMPT = `You are "Consigliere" - a smart, friendly AI assistant for a Singapore real estate agent.
+
+Your goals:
+1. Help clients find their dream property
+2. Understand their needs (budget, location, size, timeline)
+3. Guide them to BOOK A VIEWING - this is your main job
+4. Always be helpful, never pushy
+
+Guidelines:
+- Keep responses SHORT (1-2 sentences max)
+- Ask ONE question at a time
+- If they show interest, mention booking a viewing
+- Know Singapore property areas: CBD, Orchard, Holland, Bukit Timah, East Coast, etc.
+- Know property types: condo, HDB, landed, studio
+- Budget ranges in SGD: Entry <$1M, Mid $1-2M, Premium $2-5M, Luxury >$5M
+
+When to push for booking:
+- If they mention buying, looking, interested → suggest a viewing
+- If they ask about properties → offer to show some → push viewing
+- If they give budget + location → summarize options → offer viewing
+
+Always end with a question or booking suggestion.`;
+
+// Call LLM
+async function getLLMResponse(chatId, userMessage) {
+  if (!GROQ_API_KEY || GROQ_API_KEY.includes('Your') || !GROQ_API_KEY.startsWith('gsk_')) {
+    return null; // Use fallback
+  }
+  
+  // Get history
+  const history = conversationHistory.get(chatId) || [];
+  
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...history.slice(-6), // Last 6 messages for context
+    { role: 'user', content: userMessage }
+  ];
+  
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GROQ_API_KEY
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: messages,
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim();
+  } catch (e) {
+    console.log('LLM error:', e.message);
+    return null;
+  }
+}
+
+// Save to history
+function saveToHistory(chatId, role, content) {
+  const history = conversationHistory.get(chatId) || [];
+  history.push({ role, content });
+  // Keep last 10 messages
+  if (history.length > 10) history.shift();
+  conversationHistory.set(chatId, history);
+}
 
 // States: idle, booking_property, booking_name, booking_phone, booking_date, booking_time
 const STATES = {
@@ -198,35 +271,54 @@ router.post('/webhook', async (req, res) => {
   // Booking flow state machine (keep existing code)
   // ... [truncated for brevity - existing booking flow code]
   
-  // Normal conversation - determine response
-  let reply = responses.default[Math.floor(Math.random() * responses.default.length)];
+  // Check if in booking flow - if not, use LLM
+  let reply;
+  let useLLM = state.step === STATES.IDLE;
   
-  if (t.includes('hi') || t.includes('hello') || t.includes('hey')) {
-    reply = responses.greeting[Math.floor(Math.random() * responses.greeting.length)];
-  }
-  else if (t.includes('property') || t.includes('condo') || t.includes('apartment')) {
-    reply = responses.property[Math.floor(Math.random() * responses.property.length)];
-  }
-  else if (t.includes('buy') || t.includes('purchase') || t.includes('looking for')) {
-    reply = responses.buy[Math.floor(Math.random() * responses.buy.length)];
-  }
-  else if (t.includes('book') || t.includes('viewing') || t.includes('schedule') || t.includes('appointment')) {
-    state.step = STATES.BOOKING_PROPERTY;
-    state.data = {};
-    conversationStates.set(chatId, state);
-    reply = responses.booking_start[0];
-  }
-  else if (t.includes('price') || t.includes('cost') || t.includes('budget')) {
-    reply = responses.price[Math.floor(Math.random() * responses.price.length)];
-  }
-  else if (t.includes('help') || t.includes('what can you do')) {
-    reply = responses.help[Math.floor(Math.random() * responses.help.length)];
-  }
-  else if (t.includes('thanks') || t.includes('thank')) {
-    reply = 'You\'re welcome! Anything else I can help with? 🙌';
-  }
-  else if (t.includes('ok') || t.includes('cool') || t.includes('nice')) {
-    reply = '👍 What\'s next?';
+  if (useLLM) {
+    // Save user message to history
+    saveToHistory(chatId, 'user', text);
+    
+    // Try LLM first
+    const llmReply = await getLLMResponse(chatId, text);
+    if (llmReply) {
+      reply = llmReply;
+      saveToHistory(chatId, 'assistant', reply);
+    } else {
+      // Fallback to rule-based
+      reply = responses.default[Math.floor(Math.random() * responses.default.length)];
+      
+      if (t.includes('hi') || t.includes('hello') || t.includes('hey')) {
+        reply = responses.greeting[Math.floor(Math.random() * responses.greeting.length)];
+      }
+      else if (t.includes('property') || t.includes('condo') || t.includes('apartment')) {
+        reply = responses.property[Math.floor(Math.random() * responses.property.length)];
+      }
+      else if (t.includes('buy') || t.includes('purchase') || t.includes('looking for')) {
+        reply = responses.buy[Math.floor(Math.random() * responses.buy.length)];
+      }
+      else if (t.includes('book') || t.includes('viewing') || t.includes('schedule') || t.includes('appointment')) {
+        state.step = STATES.BOOKING_PROPERTY;
+        state.data = {};
+        conversationStates.set(chatId, state);
+        reply = responses.booking_start[0];
+      }
+      else if (t.includes('price') || t.includes('cost') || t.includes('budget')) {
+        reply = responses.price[Math.floor(Math.random() * responses.price.length)];
+      }
+      else if (t.includes('help') || t.includes('what can you do')) {
+        reply = responses.help[Math.floor(Math.random() * responses.help.length)];
+      }
+      else if (t.includes('thanks') || t.includes('thank')) {
+        reply = 'You\'re welcome! Anything else I can help with? 🙌';
+      }
+      else if (t.includes('ok') || t.includes('cool') || t.includes('nice')) {
+        reply = '👍 What\'s next?';
+      }
+    }
+  } else {
+    // In booking flow - rule-based (existing code)
+    reply = responses.default[0];
   }
   
   // If lead is hot, notify agent
