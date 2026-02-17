@@ -1,0 +1,6 @@
+[build]
+buildCommand = "npm install"
+startCommand = "node index.js"
+
+[runtime]
+nodeVersion = "18"
