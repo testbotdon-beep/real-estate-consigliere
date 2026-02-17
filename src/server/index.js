@@ -20,6 +20,7 @@ const adminDashboardRoutes = require('./routes/admin-dashboard');
 const testBotRoutes = require("./routes/test-bot");
 const telegramRoutes = require('./routes/telegram');
 const agentRoutes = require('./routes/agent');
+const agentLeadRoutes = require('./routes/agent-leads');
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin-dashboard', adminDashboardRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/agent', agentLeadRoutes);
 app.use('/api/test-bot', testBotRoutes);
 
 // Health check
