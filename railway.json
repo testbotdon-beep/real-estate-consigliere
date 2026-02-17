@@ -2,10 +2,10 @@
   "$schema": "https://railway.com/railway.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm install",
-    "startCommand": "node index.js"
+    "buildCommand": "npm install"
   },
   "deploy": {
-    "numReplicas": 1
+    "numReplicas": 1,
+    "start": "node index.js"
   }
 }
