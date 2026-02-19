@@ -95,6 +95,50 @@ async function createCalendarEventOAuth(booking) {
   }
 }
 
+// Check if time slot is available (conflict detection)
+async function checkCalendarAvailability(date, time) {
+  const tokens = await kvGet('google_tokens');
+  if (!tokens) return { available: true }; // No calendar connected, allow booking
+  
+  try {
+    let result = tokens;
+    if (typeof tokens === 'string') result = JSON.parse(tokens);
+    
+    const oauth = new google.auth.OAuth2(
+      (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+      (process.env.GOOGLE_REDIRECT_URI || '').trim()
+    );
+    oauth.setCredentials(result);
+    
+    const dateTimeStr = date + 'T' + time + ':00+08:00';
+    const startDateTime = new Date(dateTimeStr);
+    const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
+    
+    const calendar = google.calendar({ version: 'v3', auth: oauth });
+    
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startDateTime.toISOString(),
+      timeMax: endDateTime.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+    
+    // Filter out the "Busy" placeholder events - check if there are real events
+    const events = response.data.items || [];
+    const conflicting = events.filter(e => e.summary !== 'Busy');
+    
+    if (conflicting.length > 0) {
+      return { available: false, conflicting: conflicting[0] };
+    }
+    return { available: true };
+  } catch (e) {
+    console.log('Availability check error:', e.message);
+    return { available: true }; // Allow on error
+  }
+}
+
 // Update calendar event (reschedule)
 async function updateCalendarEventOAuth(booking) {
   const tokens = await kvGet('google_tokens');
@@ -342,8 +386,8 @@ function parseDate(text) {
     const day = parseInt(match[1]);
     const monthMap = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
     const month = monthMap[match[2]];
-    const d = new Date(today.getFullYear(), month, day);
-    if (d < today) d.setFullYear(d.getFullYear() + 1);
+    const d = new Date(sgNow.getFullYear(), month, day);
+    if (d < sgNow) d.setFullYear(d.getFullYear() + 1);
     return formatSGDate(d);
   }
   
@@ -438,6 +482,15 @@ router.post('/webhook', async (req, res) => {
       }
       else if (data === 'yes' || data === 'no') {
         if (state.step === STATES.BOOK_CONFIRM && data === 'yes') {
+          // Check for conflicts first
+          const availability = await checkCalendarAvailability(state.data.date, state.data.time);
+          if (!availability.available) {
+            const conflictTime = availability.conflicting?.start?.dateTime ? new Date(availability.conflicting.start.dateTime).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' }) : 'booked';
+            await sendMessage(chatId, '⚠️ This slot is already booked!\n\nPlease choose a different time.');
+            await saveState(chatId, { step: STATES.BOOK_TIME, data: state.data, updatedAt: Date.now() });
+            return;
+          }
+          
           const booking = { id: uuidv4(), ...state.data, status: 'confirmed', createdAt: new Date().toISOString() };
           const calResult = await createCalendarEvent(booking);
           await saveBooking(booking);
