@@ -1,354 +1,557 @@
-// Telegram Bot - With LLM & Booking Flow
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+// ============================================
+// GOOGLE OAUTH - Calendar Connection
+// ============================================
+const { google } = require('googleapis');
 
-// In-memory conversation history & leads
-const conversationHistory = new Map(); // chatId -> [{role, content}]
-const conversationStates = new Map();
-const leads = new Map(); // chatId -> lead data
+const oauth2Client = new google.auth.OAuth2(
+  (process.env.GOOGLE_CLIENT_ID || '').trim(),
+  (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+  (process.env.GOOGLE_REDIRECT_URI || '').trim()
+);
 
-// LLM System prompt - The Consigliere persona
-const SYSTEM_PROMPT = `You are "Consigliere" - a smart, friendly AI assistant for a Singapore real estate agent.
-
-Your goals:
-1. Help clients find their dream property
-2. Understand their needs (budget, location, size, timeline)
-3. Guide them to BOOK A VIEWING - this is your main job
-4. Always be helpful, never pushy
-
-Guidelines:
-- Keep responses SHORT (1-2 sentences max)
-- Ask ONE question at a time
-- If they show interest, mention booking a viewing
-- Know Singapore property areas: CBD, Orchard, Holland, Bukit Timah, East Coast, etc.
-- Know property types: condo, HDB, landed, studio
-- Budget ranges in SGD: Entry <$1M, Mid $1-2M, Premium $2-5M, Luxury >$5M
-
-When to push for booking:
-- If they mention buying, looking, interested → suggest a viewing
-- If they ask about properties → offer to show some → push viewing
-- If they give budget + location → summarize options → offer viewing
-
-Always end with a question or booking suggestion.`;
-
-// Call LLM
-async function getLLMResponse(chatId, userMessage) {
-  if (!GROQ_API_KEY || GROQ_API_KEY.includes('Your') || !GROQ_API_KEY.startsWith('gsk_')) {
-    return null; // Use fallback
-  }
-  
-  // Get history
-  const history = conversationHistory.get(chatId) || [];
-  
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...history.slice(-6), // Last 6 messages for context
-    { role: 'user', content: userMessage }
+// Get OAuth URL for agent to connect their calendar
+router.get('/calendar/connect', (req, res) => {
+  const scopes = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/calendar.events'
   ];
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: scopes,
+    prompt: 'consent'
+  });
+  // Redirect to Google's OAuth page
+  res.redirect(authUrl);
+});
+
+// OAuth callback - store tokens
+router.get('/calendar/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.redirect('/?calendar=error');
   
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + GROQ_API_KEY
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: messages,
-        max_tokens: 150,
-        temperature: 0.7
-      })
+    const { tokens } = await oauth2Client.getToken(code);
+    await kvSet('google_tokens', tokens);
+    res.redirect('/?calendar=connected');
+  } catch (error) {
+    console.error('OAuth error:', error.message);
+    res.redirect('/?calendar=error&msg=' + encodeURIComponent(error.message));
+  }
+});
+
+// Check if calendar is connected
+router.get('/calendar/status', async (req, res) => {
+  const tokens = await kvGet('google_tokens');
+  res.json({ connected: !!tokens });
+});
+
+// Create calendar event using OAuth
+async function createCalendarEventOAuth(booking) {
+  const tokens = await kvGet('google_tokens');
+  if (!tokens) {
+    return { success: false, error: 'Calendar not connected. Use /calendar/connect' };
+  }
+  
+  try {
+    // Create fresh OAuth client and set credentials
+    const oauth = new google.auth.OAuth2(
+      (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+      (process.env.GOOGLE_REDIRECT_URI || '').trim()
+    );
+    oauth.setCredentials(tokens);
+    
+    // Check if token expired and refresh if needed
+    if (tokens.expiry_date && tokens.expiry_date < Date.now()) {
+      const { credentials } = await oauth.refreshAccessToken();
+      await kvSet('google_tokens', credentials);
+      oauth.setCredentials(credentials);
+    }
+    
+    const calendar = google.calendar({ version: 'v3', auth: oauth });
+    
+    const dateTimeStr = booking.date + 'T' + booking.time + ':00+08:00';
+    const startDateTime = new Date(dateTimeStr);
+    const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
+    
+    const event = {
+      summary: '🏠 Viewing: ' + booking.property,
+      description: 'Buyer: ' + booking.name + '\nPhone: ' + booking.phone + '\nEmail: ' + (booking.email || 'N/A'),
+      start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Singapore' },
+      end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Singapore' },
+      attendees: booking.email ? [{ email: booking.email }] : [],
+      sendUpdates: 'all'
+    };
+    
+    const response = await calendar.events.insert({ calendarId: 'primary', resource: event });
+    return { success: true, htmlLink: response.data.htmlLink };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// Update calendar event (reschedule)
+async function updateCalendarEventOAuth(booking) {
+  const tokens = await kvGet('google_tokens');
+  if (!tokens) return { success: false, error: 'Calendar not connected' };
+  
+  try {
+    let result = tokens;
+    if (typeof tokens === 'string') result = JSON.parse(tokens);
+    
+    const oauth = new google.auth.OAuth2(
+      (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+      (process.env.GOOGLE_REDIRECT_URI || '').trim()
+    );
+    oauth.setCredentials(result);
+    
+    if (result.expiry_date && result.expiry_date < Date.now()) {
+      const { credentials } = await oauth.refreshAccessToken();
+      await kvSet('google_tokens', credentials);
+      oauth.setCredentials(credentials);
+    }
+    
+    const calendar = google.calendar({ version: 'v3', auth: oauth });
+    
+    // Find event by description (phone number)
+    const list = await calendar.events.list({ 
+      calendarId: 'primary', 
+      q: booking.phone,
+      singleEvents: true,
+      orderBy: 'startTime'
     });
     
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim();
+    if (list.data.items && list.data.items.length > 0) {
+      const event = list.data.items[0];
+      const dateTimeStr = booking.date + 'T' + booking.time + ':00+08:00';
+      const startDateTime = new Date(dateTimeStr);
+      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
+      
+      const updated = await calendar.events.patch({
+        calendarId: 'primary',
+        eventId: event.id,
+        resource: {
+          summary: '🏠 Viewing: ' + booking.property,
+          description: 'Buyer: ' + booking.name + '\nPhone: ' + booking.phone + '\nEmail: ' + (booking.email || 'N/A'),
+          start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Singapore' },
+          end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Singapore' },
+          attendees: booking.email ? [{ email: booking.email }] : [],
+          sendUpdates: 'all'
+        }
+      });
+      return { success: true, htmlLink: updated.data.htmlLink };
+    }
+    return { success: false, error: 'Event not found' };
   } catch (e) {
-    console.log('LLM error:', e.message);
-    return null;
+    return { success: false, error: e.message };
   }
 }
 
-// Save to history
-function saveToHistory(chatId, role, content) {
-  const history = conversationHistory.get(chatId) || [];
-  history.push({ role, content });
-  // Keep last 10 messages
-  if (history.length > 10) history.shift();
-  conversationHistory.set(chatId, history);
+// Delete calendar event (cancel)
+async function deleteCalendarEventOAuth(phone) {
+  const tokens = await kvGet('google_tokens');
+  if (!tokens) return { success: false, error: 'Calendar not connected' };
+  
+  try {
+    let result = tokens;
+    if (typeof tokens === 'string') result = JSON.parse(tokens);
+    
+    const oauth = new google.auth.OAuth2(
+      (process.env.GOOGLE_CLIENT_ID || '').trim(),
+      (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+      (process.env.GOOGLE_REDIRECT_URI || '').trim()
+    );
+    oauth.setCredentials(result);
+    
+    if (result.expiry_date && result.expiry_date < Date.now()) {
+      const { credentials } = await oauth.refreshAccessToken();
+      await kvSet('google_tokens', credentials);
+      oauth.setCredentials(credentials);
+    }
+    
+    const calendar = google.calendar({ version: 'v3', auth: oauth });
+    
+    // Find event by phone
+    const list = await calendar.events.list({ 
+      calendarId: 'primary', 
+      q: phone,
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+    
+    if (list.data.items && list.data.items.length > 0) {
+      await calendar.events.delete({ calendarId: 'primary', eventId: list.data.items[0].id });
+      return { success: true };
+    }
+    return { success: false, error: 'Event not found' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 }
 
-// States: idle, booking_property, booking_name, booking_phone, booking_date, booking_time
+const KV_URL = process.env.KV_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+
+// Extract host from KV_URL (which contains credentials)
+function getUpstashUrl(path) {
+  if (!KV_URL) return null;
+  // KV_URL is like: rediss://default:TOKEN@host:6379
+  const match = KV_URL.match(/rediss?:\/\/([^@]+)@(.+):(\d+)/);
+  if (!match) return KV_URL + '/' + path;
+  // Return https URL: https://host/path
+  return 'https://' + match[2] + '/' + path;
+}
+
+async function kvGet(key) {
+  if (!KV_URL || !KV_TOKEN) return null;
+  try {
+    const url = getUpstashUrl('get/' + key);
+    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + KV_TOKEN } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    let result = data.result;
+    // Handle stringified JSON
+    if (typeof result === 'string') {
+      try { result = JSON.parse(result); } catch (e) { }
+    }
+    return result;
+  } catch (e) { return null; }
+}
+
+async function kvSet(key, value) {
+  if (!KV_URL || !KV_TOKEN) return;
+  try {
+    const url = getUpstashUrl('set/' + key);
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify(value)
+    });
+  } catch (e) { console.log('kvSet error:', e.message); }
+}
+
+const conversationStates = new Map();
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const AGENT_CHAT_ID = process.env.AGENT_CHAT_ID;
+const GOOGLE_CALENDAR_ID = 'primary'; // Use primary calendar - service account needs access
+
+function getProperties() {
+  const env = process.env.PROPERTY_LIST;
+  if (env) return env.split(',').map(p => p.trim());
+  return ['Orchard Residences', 'The Sail', 'Marina Bay Suites', 'CBD Lifestyle', 'Holland Village', 'Bukit Timah', 'East Coast', 'Sentosa'];
+}
+
 const STATES = {
   IDLE: 'idle',
-  BOOKING_PROPERTY: 'booking_property',
-  BOOKING_NAME: 'booking_name',
-  BOOKING_PHONE: 'booking_phone',
-  BOOKING_DATE: 'booking_date',
-  BOOKING_TIME: 'booking_time'
+  BOOK_PROPERTY: 'book_property',
+  BOOK_NAME: 'book_name',
+  BOOK_PHONE: 'book_phone',
+  BOOK_EMAIL: 'book_email',
+  BOOK_DATE: 'book_date',
+  BOOK_TIME: 'book_time',
+  BOOK_CONFIRM: 'book_confirm',
+  RESCHEDULE_PROPERTY: 'reschedule_property',
+  RESCHEDULE_NAME: 'reschedule_name',
+  RESCHEDULE_NEW_DATE: 'reschedule_new_date',
+  RESCHEDULE_NEW_TIME: 'reschedule_new_time',
+  RESCHEDULE_CONFIRM: 'reschedule_confirm',
+  CANCEL_PROPERTY: 'cancel_property',
+  CANCEL_NAME: 'cancel_name',
+  CANCEL_CONFIRM: 'cancel_confirm'
 };
 
-// Lead scoring
-const buyingSignals = ['buy', 'purchase', 'viewing', 'schedule', 'interested', 'price', 'budget', 'loan', 'approve', ' condo', 'property', 'apartment'];
-const hotSignals = ['now', 'immediately', 'urgent', 'asap', 'this week', 'ready to'];
-
-function scoreLead(messages) {
-  let score = 20; // Base score for reaching out
-  
-  if (!messages || messages.length === 0) return score;
-  
-  // More messages = more interest
-  if (messages.length > 10) score += 25;
-  else if (messages.length > 5) score += 15;
-  else if (messages.length > 2) score += 10;
-  
-  // Check for buying signals
-  const recentMsgs = messages.slice(-5).map(m => m.text || '').join(' ').toLowerCase();
-  
-  buyingSignals.forEach(signal => {
-    if (recentMsgs.includes(signal)) score += 10;
-  });
-  
-  hotSignals.forEach(signal => {
-    if (recentMsgs.includes(signal)) score += 15;
-  });
-  
-  return Math.min(score, 100);
+async function loadState(chatId) {
+  if (conversationStates.has(chatId)) return conversationStates.get(chatId);
+  const state = await kvGet('state:' + chatId);
+  if (state) { conversationStates.set(chatId, state); return state; }
+  return { step: STATES.IDLE, data: {}, updatedAt: Date.now() };
 }
 
-function getLeadTier(score) {
-  if (score >= 70) return { tier: '🔥 Hot', status: 'hot' };
-  if (score >= 40) return { tier: '🌡️ Warm', status: 'warm' };
-  return { tier: '❄️ Cold', status: 'cold' };
+async function saveState(chatId, state) {
+  state.updatedAt = Date.now();
+  conversationStates.set(chatId, state);
+  await kvSet('state:' + chatId, state);
 }
 
-// Debug endpoint
-router.get('/test', (req, res) => {
-  res.json({ 
-    token: BOT_TOKEN ? 'present' : 'missing',
-    tokenLength: BOT_TOKEN ? BOT_TOKEN.length : 0,
-    activeLeads: leads.size
-  });
-});
+async function createCalendarEvent(booking) {
+  // Use OAuth instead of service account
+  return createCalendarEventOAuth(booking);
+}
 
-// Get all leads
-router.get('/leads', (req, res) => {
-  const allLeads = Array.from(leads.values());
-  res.json({ leads: allLeads });
-});
+async function saveBooking(booking) {
+  const bookings = (await kvGet('bookings')) || [];
+  bookings.push({ ...booking, createdAt: new Date().toISOString() });
+  await kvSet('bookings', bookings);
+}
 
-// Quick responses
-const responses = {
-  greeting: ['Hey! 👋 Whats up?', 'Hi there! 👋', 'Hello! 👋 How can I help?'],
-  property: ['Nice! What area you looking at?', 'Great! City fringe or outside?'], 
-  buy: ['What\'s your budget range?', 'Are you looking for new launch or resale?'],
-  viewing: ['Sure! Which property would you like to view?', 'Let me help you book a viewing. Which property interests you?'],
-  price: ['What location you looking at?', 'Depends on district. Which area?'],
-  help: ['I can help with properties, bookings, or general questions!', 'Ask me about properties or book a viewing!'],
-  default: ['Got it! Tell me more 👀', 'Interesting! What else?', 'Cool!'],
-  booking_start: ['Great! Which property would you like to view?'],
-  booking_name: ['Perfect! What\'s your name?'],
-  booking_phone: ['Nice to meet you! What\'s your phone number?'],
-  booking_date: ['When would you like to view? (e.g., tomorrow, friday, or a date like 20 Feb)'],
-  booking_time: ['What time works for you? (e.g., 2pm, 3:30pm)'],
-  booking_confirm: ['Awesome! I\'ll send your viewing request to the agent. They\'ll confirm shortly! ✅'],
-  booking_cancel: ['No problem! Let me know when you need help again 👋'],
-  unknown_date: ['Sorry, I didn\'t get that. Try: tomorrow, friday, or a date like 20 Feb'],
-  unknown_time: ['Sorry, try a time like: 2pm, 3:30pm, or 14:00']
-};
+function matchProperty(input) {
+  const props = getProperties();
+  const n = input.toLowerCase().trim();
+  const exact = props.find(p => p.toLowerCase() === n);
+  if (exact) return { match: exact, confidence: 100 };
+  const contains = props.filter(p => p.toLowerCase().includes(n) || n.includes(p.toLowerCase()));
+  if (contains.length === 1) return { match: contains[0], confidence: 90 };
+  if (contains.length > 1) return { match: contains, confidence: 50 };
+  return { match: null, confidence: 0 };
+}
 
-// Parse relative dates
+function validatePhone(phone) {
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  const match = cleaned.match(/^(?:65)?[89]\d{7}$/);
+  if (match) return { valid: true, phone: cleaned.length === 8 ? '65' + cleaned : cleaned };
+  return { valid: false };
+}
+
+function validateEmail(email) {
+  return email.includes('@') && email.includes('.') && email.length > 5;
+}
+
 function parseDate(text) {
-  const t = text.toLowerCase();
-  const today = new Date();
+  const t = text.toLowerCase().trim();
   
-  if (t.includes('tomorrow')) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  }
+  // Get current date in Singapore timezone
+  const now = new Date();
+  const sgNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+  sgNow.setHours(0, 0, 0, 0);
+  const sgDay = sgNow.getDay();
   
-  if (t.includes('today')) {
-    return today.toISOString().split('T')[0];
-  }
+  if (t === 'today') return formatSGDate(sgNow);
+  if (t === 'tomorrow') { const d = new Date(sgNow); d.setDate(d.getDate() + 1); return formatSGDate(d); }
   
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   for (let i = 0; i < days.length; i++) {
-    if (t.includes(days[i])) {
-      const d = new Date(today);
-      const diff = (i + 7 - today.getDay()) % 7 || 7;
-      d.setDate(d.getDate() + diff);
-      return d.toISOString().split('T')[0];
+    if (t.includes(days[i])) { 
+      const d = new Date(sgNow); 
+      let diff = (i + 7 - sgDay) % 7;
+      if (diff === 0) diff = 7; // If today is the same day, go to next week
+      d.setDate(d.getDate() + diff); 
+      return formatSGDate(d); 
     }
   }
   
-  // Try regex for dates like "20 Feb" or "Feb 20"
-  const dateMatch = text.match(/(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
-  if (dateMatch) {
+  // Try parsing dates like "20 Feb" or "Feb 20"
+  const match = t.match(/(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/);
+  if (match) {
+    const day = parseInt(match[1]);
     const monthMap = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-    const month = monthMap[dateMatch[2].toLowerCase()];
-    const day = parseInt(dateMatch[1]);
+    const month = monthMap[match[2]];
     const d = new Date(today.getFullYear(), month, day);
     if (d < today) d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().split('T')[0];
+    return formatSGDate(d);
   }
   
   return null;
 }
 
-// Parse time
+function formatSGDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function parseTime(text) {
-  const t = text.toLowerCase();
-  
-  // Match patterns like 2pm, 3:30pm, 14:00, 2:30 pm
-  let match = t.match(/(\d{1,2})[:.](\d{2})?\s*(am|pm)?/);
+  const t = text.toLowerCase().trim();
+  if (t.includes('morning')) return '10:00';
+  if (t.includes('afternoon')) return '14:00';
+  if (t.includes('evening')) return '18:00';
+  let match = t.match(/(\d{1,2})[:.]?(\d{2})?\s*(am|pm)?/i);
   if (match) {
     let hour = parseInt(match[1]);
     const min = match[2] ? parseInt(match[2]) : 0;
     const period = match[3];
-    
     if (period === 'pm' && hour < 12) hour += 12;
     if (period === 'am' && hour === 12) hour = 0;
-    
-    return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+    if (hour >= 0 && hour <= 23 && min >= 0 && min <= 59) return hour.toString().padStart(2, '0') + ':' + min.toString().padStart(2, '0');
   }
-  
-  match = t.match(/(\d{1,2})\s*(am|pm)/);
-  if (match) {
-    let hour = parseInt(match[1]);
-    if (match[2] === 'pm' && hour < 12) hour += 12;
-    if (match[2] === 'am' && hour === 12) hour = 0;
-    return `${hour.toString().padStart(2, '0')}:00`;
-  }
-  
   return null;
 }
 
-// POST /api/telegram/webhook
-router.post('/webhook', async (req, res) => {
-  const message = req.body.message;
-  if (!message?.text) {
-    res.status(200).send('OK');
-    return;
-  }
-  
-  const chatId = message.chat.id;
-  const text = message.text;
-  const t = text.toLowerCase();
-  
-  // Initialize or get lead
-  let lead = leads.get(chatId) || { 
-    chatId, 
-    messages: [], 
-    score: 20, 
-    status: 'new',
-    createdAt: new Date().toISOString()
-  };
-  lead.messages.push({ text, time: new Date().toISOString() });
-  lead.score = scoreLead(lead.messages);
-  const { tier, status } = getLeadTier(lead.score);
-  lead.status = status;
-  leads.set(chatId, lead);
-  
-  // Get or init conversation state
-  let state = conversationStates.get(chatId) || { step: STATES.IDLE, data: {} };
-  
-  // Handle cancel anytime
-  if (t === 'cancel' || t === 'stop' || t === 'nevermind') {
-    if (state.step !== STATES.IDLE) {
-      conversationStates.set(chatId, { step: STATES.IDLE, data: {} });
-      await sendMessage(chatId, responses.booking_cancel);
-      res.status(200).send('OK');
-      return;
-    }
-  }
-  
-  // Booking flow state machine (keep existing code)
-  // ... [truncated for brevity - existing booking flow code]
-  
-  // Check if in booking flow - if not, use LLM
-  let reply;
-  let useLLM = state.step === STATES.IDLE;
-  
-  if (useLLM) {
-    // Save user message to history
-    saveToHistory(chatId, 'user', text);
-    
-    // Try LLM first
-    const llmReply = await getLLMResponse(chatId, text);
-    if (llmReply) {
-      reply = llmReply;
-      saveToHistory(chatId, 'assistant', reply);
-    } else {
-      // Fallback to rule-based
-      reply = responses.default[Math.floor(Math.random() * responses.default.length)];
-      
-      if (t.includes('hi') || t.includes('hello') || t.includes('hey')) {
-        reply = responses.greeting[Math.floor(Math.random() * responses.greeting.length)];
-      }
-      else if (t.includes('property') || t.includes('condo') || t.includes('apartment')) {
-        reply = responses.property[Math.floor(Math.random() * responses.property.length)];
-      }
-      else if (t.includes('buy') || t.includes('purchase') || t.includes('looking for')) {
-        reply = responses.buy[Math.floor(Math.random() * responses.buy.length)];
-      }
-      else if (t.includes('book') || t.includes('viewing') || t.includes('schedule') || t.includes('appointment')) {
-        state.step = STATES.BOOKING_PROPERTY;
-        state.data = {};
-        conversationStates.set(chatId, state);
-        reply = responses.booking_start[0];
-      }
-      else if (t.includes('price') || t.includes('cost') || t.includes('budget')) {
-        reply = responses.price[Math.floor(Math.random() * responses.price.length)];
-      }
-      else if (t.includes('help') || t.includes('what can you do')) {
-        reply = responses.help[Math.floor(Math.random() * responses.help.length)];
-      }
-      else if (t.includes('thanks') || t.includes('thank')) {
-        reply = 'You\'re welcome! Anything else I can help with? 🙌';
-      }
-      else if (t.includes('ok') || t.includes('cool') || t.includes('nice')) {
-        reply = '👍 What\'s next?';
-      }
-    }
-  } else {
-    // In booking flow - rule-based (existing code)
-    reply = responses.default[0];
-  }
-  
-  // If lead is hot, notify agent
-  if (lead.score >= 70 && lead.messages.length === 1) {
-    const hotLeadMsg = `🔥 HOT LEAD DETECTED!\n\nChat: ${chatId}\nScore: ${lead.score}%\nLatest: ${text.substring(0, 100)}`;
-    if (BOT_TOKEN) {
-      try {
-        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          chat_id: process.env.ADMIN_CHAT_ID || chatId,
-          text: hotLeadMsg
-        }, { timeout: 5000 });
-      } catch (e) {}
-    }
-  }
+async function getLLMResponse(msg) {
+  if (!GROQ_API_KEY || !GROQ_API_KEY.startsWith('gsk_')) return null;
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
+      body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'system', content: 'Friendly real estate assistant.' }, { role: 'user', content: msg }], max_tokens: 80 })
+    });
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content;
+  } catch (e) { return null; }
+}
 
-  await sendMessage(chatId, reply);
-  res.status(200).send('OK');
-});
-
-// Helper to send message
-async function sendMessage(chatId, text) {
+async function sendMessage(chatId, text, replyMarkup = null) {
   if (!BOT_TOKEN) return;
   try {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: chatId,
-      text: text
-    }, { timeout: 10000 });
-  } catch (e) {
-    console.log('Send failed:', e.message);
-  }
+    const payload = { chat_id: chatId, text };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
+    await axios.post('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', payload, { timeout: 10000 });
+  } catch (e) { console.log('Send error:', e.message); }
 }
+
+function mainMenuKeyboard() { return { keyboard: [[{ text: '📅 Book a Viewing' }, { text: '📝 Reschedule' }], [{ text: '❌ Cancel Viewing' }, { text: '❓ Help' }]], resize_keyboard: true }; }
+function yesNoKeyboard() { return { inline_keyboard: [[{ text: '✅ Yes', callback_data: 'yes' }, { text: '✏️ Edit', callback_data: 'no' }]] }; }
+function propertyKeyboard() {
+  const props = getProperties();
+  const rows = [[{ text: '🔍 Type Property', callback_data: 'prop_search' }]];
+  for (let i = 0; i < props.length; i += 2) {
+    const row = [{ text: props[i], callback_data: 'prop_' + props[i] }];
+    if (i + 1 < props.length) row.push({ text: props[i + 1], callback_data: 'prop_' + props[i + 1] });
+    rows.push(row);
+  }
+  return { inline_keyboard: rows };
+}
+
+function formatDate(d) { 
+  // Parse as Singapore date to avoid timezone issues
+  const [year, month, day] = d.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' }); 
+}
+function formatTime(t) { const [h, m] = t.split(':'); const hour = parseInt(h); return (hour % 12 || 12) + ':' + m + ' ' + (hour >= 12 ? 'PM' : 'AM'); }
+
+router.post('/webhook', async (req, res) => {
+  try {
+    const callbackQuery = req.body.callback_query;
+    if (callbackQuery) {
+      const chatId = callbackQuery.message.chat.id;
+      const data = callbackQuery.data;
+      try { await axios.post('https://api.telegram.org/bot' + BOT_TOKEN + '/answerCallbackQuery', { callback_query_id: callbackQuery.id }); } catch (e) { }
+      let state = await loadState(chatId);
+      if (data === 'book_viewing') { await saveState(chatId, { step: STATES.BOOK_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '🏠 Which property?', propertyKeyboard()); }
+      else if (data === 'reschedule') { await saveState(chatId, { step: STATES.RESCHEDULE_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '📝 Which property?'); }
+      else if (data === 'cancel_viewing') { await saveState(chatId, { step: STATES.CANCEL_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '❌ Which property?'); }
+      else if (data === 'prop_search') { await sendMessage(chatId, 'Type property name:'); }
+      else if (data.startsWith('prop_')) {
+        const prop = data.replace('prop_', '');
+        state.data.property = prop;
+        if (state.step === STATES.BOOK_PROPERTY) { state.step = STATES.BOOK_NAME; await saveState(chatId, state); await sendMessage(chatId, 'Great! ' + prop + ' — what\'s your name?'); }
+        else if (state.step === STATES.RESCHEDULE_PROPERTY) { state.step = STATES.RESCHEDULE_NAME; await saveState(chatId, state); await sendMessage(chatId, 'What name?'); }
+        else if (state.step === STATES.CANCEL_PROPERTY) { state.step = STATES.CANCEL_NAME; await saveState(chatId, state); await sendMessage(chatId, 'What name?'); }
+      }
+      else if (data === 'yes' || data === 'no') {
+        if (state.step === STATES.BOOK_CONFIRM && data === 'yes') {
+          const booking = { id: uuidv4(), ...state.data, status: 'confirmed', createdAt: new Date().toISOString() };
+          const calResult = await createCalendarEvent(booking);
+          await saveBooking(booking);
+          if (AGENT_CHAT_ID) await sendMessage(AGENT_CHAT_ID, '📅 NEW BOOKING!\n\n' + booking.property + '\n' + booking.name + '\n' + booking.phone + '\n' + formatDate(booking.date) + ' ' + formatTime(booking.time));
+          const calMsg = calResult.success ? '\n\n📧 Calendar invite sent!\n' + (calResult.htmlLink || '') : '\n\n⚠️ Calendar failed: ' + (calResult.error || 'unknown');
+          await sendMessage(chatId, '✅ BOOKED!\n\n' + booking.property + '\n' + formatDate(booking.date) + ' at ' + formatTime(booking.time) + calMsg);
+          await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() });
+        }
+        else if (state.step === STATES.BOOK_CONFIRM && data === 'no') { await saveState(chatId, { step: STATES.BOOK_PROPERTY, data: state.data, updatedAt: Date.now() }); await sendMessage(chatId, 'OK, let\'s start over.\n\nWhich property?', propertyKeyboard()); }
+        else if (state.step === STATES.RESCHEDULE_CONFIRM && data === 'yes') {
+          const calResult = await updateCalendarEventOAuth(state.data);
+          const calMsg = calResult.success ? '\n\n📧 Calendar updated!\n' + (calResult.htmlLink || '') : '\n\n⚠️ Calendar update failed: ' + (calResult.error || 'unknown');
+          await sendMessage(chatId, '✅ RESCHEDULED!\n\n' + state.data.property + '\n' + formatDate(state.data.date) + ' at ' + formatTime(state.data.time) + calMsg);
+          if (AGENT_CHAT_ID) await sendMessage(AGENT_CHAT_ID, '📝 RESCHEDULED\n\n' + state.data.property + '\n' + state.data.name + '\n' + formatDate(state.data.date) + ' ' + formatTime(state.data.time));
+          await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() });
+        }
+        else if (state.step === STATES.RESCHEDULE_CONFIRM && data === 'no') { await sendMessage(chatId, 'No change made.', mainMenuKeyboard()); await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() }); }
+        else if (state.step === STATES.CANCEL_CONFIRM && data === 'yes') {
+          const calResult = await deleteCalendarEventOAuth(state.data.phone);
+          await sendMessage(chatId, '❌ CANCELLED\n\n' + state.data.property + '\n' + state.data.name + (calResult.success ? '\n\n📧 Calendar event removed' : ''));
+          if (AGENT_CHAT_ID) await sendMessage(AGENT_CHAT_ID, '❌ CANCELLED\n\n' + state.data.property + '\n' + state.data.name);
+          await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() });
+        }
+        else if (state.step === STATES.CANCEL_CONFIRM && data === 'no') { await sendMessage(chatId, 'No problem!', mainMenuKeyboard()); await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() }); }
+      }
+      res.status(200).send('OK'); return;
+    }
+
+    const message = req.body.message;
+    if (!message?.text) { res.status(200).send('OK'); return; }
+    const chatId = message.chat.id;
+    const text = message.text;
+    const t = text.toLowerCase().trim();
+
+    if (t === '/start' || t === '/menu') { await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '👋 Hi! I\'m Consigliere.\n\nWhat would you like to do?', mainMenuKeyboard()); res.status(200).send('OK'); return; }
+    if (t === '📅 book a viewing' || t === 'book a viewing') { await saveState(chatId, { step: STATES.BOOK_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '🏠 Which property?', propertyKeyboard()); res.status(200).send('OK'); return; }
+    if (t === '📝 reschedule' || t === 'reschedule') { await saveState(chatId, { step: STATES.RESCHEDULE_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '📝 Which property?'); res.status(200).send('OK'); return; }
+    if (t === '❌ cancel viewing' || t === 'cancel viewing') { await saveState(chatId, { step: STATES.CANCEL_PROPERTY, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, '❌ Which property?'); res.status(200).send('OK'); return; }
+    if (t === '❓ help' || t === 'help') { await sendMessage(chatId, '📅 Book\n📝 Reschedule\n❌ Cancel\n\nUse the menu!', mainMenuKeyboard()); res.status(200).send('OK'); return; }
+    if (t === 'cancel') { await saveState(chatId, { step: STATES.IDLE, data: {}, updatedAt: Date.now() }); await sendMessage(chatId, 'Cancelled.', mainMenuKeyboard()); res.status(200).send('OK'); return; }
+
+    let state = await loadState(chatId);
+    switch (state.step) {
+      case STATES.IDLE:
+        const llm = await getLLMResponse(text);
+        await sendMessage(chatId, llm || 'Use the menu to book, reschedule, or cancel.', mainMenuKeyboard());
+        break;
+      case STATES.BOOK_PROPERTY:
+        const pm = matchProperty(text);
+        if (pm.confidence >= 90) { state.data.property = pm.match; state.step = STATES.BOOK_NAME; await saveState(chatId, state); await sendMessage(chatId, 'Great! ' + pm.match + ' — what\'s your name?'); }
+        else if (pm.confidence === 50) { const kb = { inline_keyboard: pm.match.map(p => [{ text: p, callback_data: 'prop_' + p }]) }; await sendMessage(chatId, 'Did you mean?', kb); }
+        else { await sendMessage(chatId, 'Property not found.', propertyKeyboard()); }
+        break;
+      case STATES.BOOK_NAME:
+        if (text.length < 2) { await sendMessage(chatId, 'Enter valid name.'); break; }
+        state.data.name = text; state.step = STATES.BOOK_PHONE; await saveState(chatId, state);
+        await sendMessage(chatId, 'Nice to meet you, ' + text + '! What\'s your phone?');
+        break;
+      case STATES.BOOK_PHONE:
+        let pv = validatePhone(text);
+        if (!pv.valid) { await sendMessage(chatId, 'Invalid phone. Try: 91234567'); break; }
+        state.data.phone = pv.phone; state.step = STATES.BOOK_EMAIL; await saveState(chatId, state);
+        await sendMessage(chatId, 'What\'s your email?');
+        break;
+      case STATES.BOOK_EMAIL:
+        if (!validateEmail(text)) { await sendMessage(chatId, 'Invalid email. Try: john@email.com'); break; }
+        state.data.email = text; state.step = STATES.BOOK_DATE; await saveState(chatId, state);
+        await sendMessage(chatId, 'What date? (tomorrow, Friday, 20 Feb)');
+        break;
+      case STATES.BOOK_DATE:
+        const dp = parseDate(text);
+        if (!dp) { await sendMessage(chatId, 'Invalid date. Try: tomorrow, Friday'); break; }
+        state.data.date = dp; state.step = STATES.BOOK_TIME; await saveState(chatId, state);
+        await sendMessage(chatId, 'What time? (2pm, 3:30pm, afternoon)');
+        break;
+      case STATES.BOOK_TIME:
+        const tp = parseTime(text);
+        if (!tp) { await sendMessage(chatId, 'Invalid time. Try: 2pm'); break; }
+        state.data.time = tp; state.step = STATES.BOOK_CONFIRM; await saveState(chatId, state);
+        await sendMessage(chatId, '📋 Confirm\n\n' + state.data.property + '\n' + state.data.name + '\n' + state.data.phone + '\n' + state.data.email + '\n' + formatDate(state.data.date) + ' ' + formatTime(state.data.time) + '\n\nConfirm?', yesNoKeyboard());
+        break;
+      case STATES.RESCHEDULE_PROPERTY:
+        const rs = matchProperty(text);
+        if (rs.confidence >= 90) { state.data.property = rs.match; state.step = STATES.RESCHEDULE_NAME; await saveState(chatId, state); await sendMessage(chatId, 'What name?'); }
+        else { await sendMessage(chatId, 'Property not found.'); }
+        break;
+      case STATES.RESCHEDULE_NAME:
+        state.data.name = text; state.step = STATES.RESCHEDULE_NEW_DATE; await saveState(chatId, state); await sendMessage(chatId, 'New date?');
+        break;
+      case STATES.RESCHEDULE_NEW_DATE:
+        const rd = parseDate(text);
+        if (!rd) { await sendMessage(chatId, 'Invalid date.'); break; }
+        state.data.date = rd; state.step = STATES.RESCHEDULE_NEW_TIME; await saveState(chatId, state); await sendMessage(chatId, 'New time?');
+        break;
+      case STATES.RESCHEDULE_NEW_TIME:
+        const rt = parseTime(text);
+        if (!rt) { await sendMessage(chatId, 'Invalid time.'); break; }
+        state.data.time = rt; state.step = STATES.RESCHEDULE_CONFIRM; await saveState(chatId, state);
+        await sendMessage(chatId, '🔄 Confirm reschedule to ' + formatDate(state.data.date) + ' ' + formatTime(state.data.time) + '?', yesNoKeyboard());
+        break;
+      case STATES.CANCEL_PROPERTY:
+        const cp = matchProperty(text);
+        if (cp.confidence >= 90) { state.data.property = cp.match; state.step = STATES.CANCEL_NAME; await saveState(chatId, state); await sendMessage(chatId, 'What name?'); }
+        else { await sendMessage(chatId, 'Property not found.'); }
+        break;
+      case STATES.CANCEL_NAME:
+        state.data.name = text; state.step = STATES.CANCEL_CONFIRM; await saveState(chatId, state);
+        await sendMessage(chatId, '⚠️ Cancel ' + state.data.property + ' under ' + state.data.name + '?', yesNoKeyboard());
+        break;
+      default:
+        await sendMessage(chatId, 'Type /start to begin.', mainMenuKeyboard());
+    }
+  } catch (e) { console.log('Error:', e.message); }
+  res.status(200).send('OK');
+});
 
 module.exports = router;
